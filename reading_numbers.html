@@ -1,0 +1,3160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Number Kingdom</title>
+<style>
+/* =========================================================
+   DESIGN TOKENS
+   ========================================================= */
+:root{
+  --sky-top:#5EC8FF;
+  --sky-bottom:#BEEBFF;
+  --meadow:#6FCF97;
+  --meadow-dark:#4FAE79;
+  --gold:#FFC93C;
+  --gold-dark:#E6A800;
+  --magic:#9B6DFF;
+  --magic-dark:#7748E0;
+  --coral:#FF6F61;
+  --coral-dark:#E14C3E;
+  --navy:#241E44;
+  --navy-soft:#3A3170;
+  --cream:#FFF8E7;
+  --white:#FFFFFF;
+  --shadow:0 8px 0 rgba(0,0,0,0.18);
+  --shadow-soft:0 14px 30px rgba(20,10,50,0.22);
+  --shadow-premium:0 8px 0 rgba(0,0,0,0.18), 0 20px 34px rgba(20,10,50,0.22);
+  --font-display:'Fredoka','Segoe UI Rounded','SF Pro Rounded','Arial Rounded MT Bold',system-ui,sans-serif;
+  --font-body:'Segoe UI Rounded','SF Pro Rounded',system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
+html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0E0B22;font-family:var(--font-body);}
+
+/* =========================================================
+   FULLSCREEN ROOT
+   The game always fills the real viewport — no fixed design
+   resolution, no CSS-transform scaling, no letterboxing.
+   16:9 is preserved by adapting the UI (clamp()-based sizing,
+   flex/grid layout) rather than shrinking a fixed-size stage.
+   ========================================================= */
+#game-root{
+  position:fixed; inset:0;
+  width:100vw; height:100vh; height:100dvh;
+  overflow:hidden;
+  background:#0E0B22;
+}
+
+/* =========================================================
+   SCREEN SYSTEM
+   Screens stack absolutely (needed for cross-fade transitions
+   between them) but each one fills the true viewport and lays
+   its own content out with flexbox — never a fixed pixel box.
+   ========================================================= */
+.screen{
+  position:absolute; inset:0; width:100%; height:100%;
+  display:flex; flex-direction:column;
+  opacity:0; visibility:hidden; pointer-events:none;
+  transition:opacity .5s ease;
+}
+.screen.active{opacity:1; visibility:visible; pointer-events:auto;}
+.screen.transition-slide-in{animation:slideIn .55s cubic-bezier(.2,.8,.2,1);}
+.screen.transition-scale-in{animation:scaleIn .5s cubic-bezier(.2,.8,.2,1);}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes scaleIn{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+
+/* Screens whose content is a single centered block rather than a
+   topbar/content/bottom layout use centered flex alignment. */
+#splash-screen, #title-screen{
+  align-items:center; justify-content:center;
+}
+
+/* =========================================================
+   SHARED UI PIECES
+   ========================================================= */
+.btn{
+  font-family:var(--font-display);
+  font-weight:700;
+  letter-spacing:.5px;
+  border:none;
+  border-radius:24px;
+  cursor:pointer;
+  color:var(--white);
+  min-height:clamp(64px,7vh,84px);
+  padding:clamp(14px,1.6vh,20px) clamp(28px,3.2vw,44px);
+  font-size:clamp(20px,1.7vw,30px);
+  box-shadow:var(--shadow-premium);
+  transform:translateY(0) scale(1);
+  transition:transform .16s cubic-bezier(.2,.8,.3,1.3), box-shadow .2s ease, filter .12s ease;
+}
+.btn:hover{filter:brightness(1.07); transform:translateY(-3px) scale(1.015); box-shadow:var(--shadow-premium), 0 0 0 6px rgba(255,255,255,.18);}
+.btn:active{transform:translateY(4px) scale(.97); box-shadow:0 3px 0 rgba(0,0,0,0.18);}
+.btn:disabled{opacity:.35; cursor:not-allowed; filter:none; transform:none; box-shadow:var(--shadow);}
+.btn-primary{background:linear-gradient(180deg,var(--coral),var(--coral-dark));}
+.btn-secondary{background:linear-gradient(180deg,var(--magic),var(--magic-dark));}
+.btn-ghost{background:rgba(255,255,255,0.16); backdrop-filter:blur(4px); box-shadow:none;}
+.btn-ghost:hover{box-shadow:0 0 0 6px rgba(255,255,255,.14);}
+.btn-ghost:active{transform:translateY(2px) scale(.97);}
+
+.icon-btn{
+  width:clamp(60px,5.5vw,84px); height:clamp(60px,5.5vw,84px); border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:clamp(26px,2.4vw,38px); border:none; cursor:pointer; flex-shrink:0;
+  background:rgba(255,255,255,0.85);
+  box-shadow:0 5px 0 rgba(0,0,0,0.15), 0 10px 18px rgba(20,10,50,0.16);
+  transition:transform .16s cubic-bezier(.2,.8,.3,1.3), box-shadow .2s ease;
+}
+.icon-btn:hover{transform:translateY(-2px) scale(1.08); box-shadow:0 5px 0 rgba(0,0,0,0.15), 0 10px 18px rgba(20,10,50,0.16), 0 0 0 6px rgba(255,255,255,.25);}
+.icon-btn:active{transform:translateY(3px) scale(.94);}
+.icon-btn.off{filter:grayscale(1) opacity(.55);}
+.icon-btn:disabled{opacity:.35; cursor:not-allowed; transform:none;}
+
+.stars-row{display:flex; gap:.3em; flex-wrap:wrap;}
+.star-icon{font-size:clamp(16px,1.6vw,24px); filter:grayscale(1) opacity(.4);}
+.star-icon.filled{filter:none; animation:twinkle 1.8s ease-in-out infinite;}
+@keyframes twinkle{0%,100%{transform:scale(1);}50%{transform:scale(1.18);}}
+
+/* =========================================================
+   ANIMATIONS - AMBIENT
+   ========================================================= */
+@keyframes floatY{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
+@keyframes driftX{from{transform:translateX(-15vw);}to{transform:translateX(115vw);}}
+@keyframes swayRotate{0%,100%{transform:rotate(-4deg);}50%{transform:rotate(4deg);}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes sparklePop{0%{transform:scale(0);opacity:0;}40%{opacity:1;}100%{transform:scale(1.4);opacity:0;}}
+@keyframes pulseGlow{0%,100%{opacity:.55;}50%{opacity:1;}}
+@keyframes flagWave{0%,100%{transform:skewY(0deg);}50%{transform:skewY(6deg);}}
+@keyframes birdFlap{0%,100%{transform:scaleX(-1) translateY(0) scaleY(1);}50%{transform:scaleX(-1) translateY(-6px) scaleY(.85);}}
+@keyframes cardPop{0%{transform:scale(.86) translateY(16px);opacity:0;}60%{transform:scale(1.035) translateY(-3px);opacity:1;}100%{transform:scale(1) translateY(0);opacity:1;}}
+@keyframes fireflyGlow{0%,100%{opacity:.2; box-shadow:0 0 6px 2px rgba(255,235,130,.5);}50%{opacity:1; box-shadow:0 0 16px 6px rgba(255,235,130,.9);}}
+@keyframes fireflyDrift{0%,100%{transform:translate(0,0);}25%{transform:translate(14px,-10px);}50%{transform:translate(2px,-20px);}75%{transform:translate(-12px,-6px);}}
+
+.card-pop-anim{animation:cardPop .5s cubic-bezier(.22,1.15,.36,1) both;}
+.firefly{
+  position:absolute; width:.6em; height:.6em; border-radius:50%; font-size:12px;
+  background:radial-gradient(circle, #FFF9C4, #FFD54F 55%, transparent 72%);
+  animation:fireflyGlow 2.6s ease-in-out infinite, fireflyDrift 7s ease-in-out infinite;
+}
+
+.decor-layer{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+.cloud-wrap{position:absolute; animation:driftX linear infinite;}
+.cloud{display:inline-block; font-size:70px; opacity:.9; animation:floatY 6s ease-in-out infinite;}
+.bird-wrap{position:absolute; animation:driftX linear infinite;}
+/* SVG bird: body glides on a gentle wave, wings flap around the shoulder joint, a soft shadow sits under it */
+.bird{display:inline-block; width:1em; height:1em; font-size:30px; animation:birdGlide 2.4s ease-in-out infinite;
+  filter:drop-shadow(0 4px 3px rgba(0,0,0,.22));}
+.bird svg{width:100%; height:100%; overflow:visible; display:block;}
+.bird .wing{transform-box:fill-box; transform-origin:100% 100%; animation:wingFlap .55s ease-in-out infinite;}
+.bird .wing.back{transform-origin:0% 100%; animation-name:wingFlapBack;}
+@keyframes birdGlide{0%,100%{transform:translateY(0) rotate(-3deg);}50%{transform:translateY(-9px) rotate(3deg);}}
+@keyframes wingFlap{0%,100%{transform:rotate(-38deg) scaleY(1);}50%{transform:rotate(30deg) scaleY(.85);}}
+@keyframes wingFlapBack{0%,100%{transform:rotate(38deg) scaleY(1);}50%{transform:rotate(-30deg) scaleY(.85);}}
+.sparkle{position:absolute; font-size:22px; animation:sparklePop 2.4s ease-in-out infinite;}
+.float-el{animation:floatY 3.5s ease-in-out infinite;}
+.sway-el{animation:swayRotate 4s ease-in-out infinite; transform-origin:bottom center;}
+.spin-el{animation:spin 12s linear infinite;}
+.flag-el{animation:flagWave 2.2s ease-in-out infinite; transform-origin:left center; display:inline-block;}
+
+/* =========================================================
+   ORIENTATION LOCK
+   ========================================================= */
+#orientation-lock{
+  position:fixed; inset:0; z-index:9999; display:none;
+  background:var(--navy); color:var(--white);
+  align-items:center; justify-content:center; flex-direction:column;
+  font-family:var(--font-display); text-align:center; padding:24px;
+}
+@media (max-aspect-ratio: 4/3){ #orientation-lock{display:flex;} }
+#orientation-lock .rotate-icon{font-size:64px; animation:spin 2.5s linear infinite; margin-bottom:16px;}
+
+/* =========================================================
+   SPLASH SCREEN
+   ========================================================= */
+#splash-screen{background:radial-gradient(circle at 50% 40%, #4A3A9C 0%, #241E44 70%);}
+.splash-logo{
+  font-family:var(--font-display); font-size:clamp(38px,7vw,96px); font-weight:800; color:var(--gold);
+  text-shadow:0 6px 0 var(--gold-dark), 0 14px 24px rgba(0,0,0,.4);
+  letter-spacing:.06em; animation:floatY 2.4s ease-in-out infinite; text-align:center; padding:0 20px;
+}
+.splash-sub{color:var(--white); font-size:clamp(15px,1.6vw,24px); opacity:.75; margin-top:18px; letter-spacing:2px; text-align:center;}
+.splash-loading{
+  margin-top:clamp(30px,5vh,50px); width:min(360px,60vw); height:16px; border-radius:10px;
+  background:rgba(255,255,255,.15); overflow:hidden;
+}
+.splash-loading-bar{height:100%; width:0%; background:linear-gradient(90deg,var(--coral),var(--gold)); border-radius:10px; transition:width .3s ease;}
+.splash-inner{display:flex;flex-direction:column;align-items:center;}
+
+/* =========================================================
+   TITLE SCREEN
+   ========================================================= */
+#title-screen{background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 65%, var(--meadow) 100%);}
+.title-hero{display:flex; flex-direction:column; align-items:center; z-index:2; padding:20px; text-align:center;}
+.title-crown{font-size:clamp(34px,4.5vw,60px); margin-bottom:6px; animation:floatY 3s ease-in-out infinite;}
+.title-name{
+  font-family:var(--font-display); font-size:clamp(44px,9vw,120px); font-weight:800; color:var(--white);
+  text-shadow:3px 0px 0 var(--navy), 2.6px 1.5px 0 var(--navy), 1.5px 2.6px 0 var(--navy), 0px 3px 0 var(--navy), -1.5px 2.6px 0 var(--navy), -2.6px 1.5px 0 var(--navy), -3px 0px 0 var(--navy), -2.6px -1.5px 0 var(--navy), -1.5px -2.6px 0 var(--navy), -0px -3px 0 var(--navy), 1.5px -2.6px 0 var(--navy), 2.6px -1.5px 0 var(--navy), 1.74px 0.47px 0 var(--navy), 1.27px 1.27px 0 var(--navy), 0.47px 1.74px 0 var(--navy), -0.47px 1.74px 0 var(--navy), -1.27px 1.27px 0 var(--navy), -1.74px 0.47px 0 var(--navy), -1.74px -0.47px 0 var(--navy), -1.27px -1.27px 0 var(--navy), -0.47px -1.74px 0 var(--navy), 0.47px -1.74px 0 var(--navy), 1.27px -1.27px 0 var(--navy), 1.74px -0.47px 0 var(--navy), 0 10px 0 var(--magic-dark), 0 20px 30px rgba(0,0,0,.25);
+  letter-spacing:.03em; text-align:center; line-height:1;
+}
+.title-name span{color:var(--gold);}
+.title-tag{font-family:var(--font-display); font-size:clamp(14px,1.8vw,26px); color:var(--navy-soft); margin-top:14px; letter-spacing:2px; font-weight:700;}
+.title-menu{display:flex; flex-direction:column; gap:clamp(12px,1.8vh,18px); margin-top:clamp(28px,5vh,46px); width:min(420px,80vw);}
+.title-menu .btn{width:100%; font-size:clamp(20px,2vw,30px);}
+/* Grade select (shown after PLAY) */
+#grade-screen{background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 65%, var(--meadow) 100%);}
+.grade-title{font-family:var(--font-display); font-size:clamp(30px,5vw,60px); font-weight:800; color:var(--white); text-shadow:2px 0px 0 var(--navy), 1.73px 1px 0 var(--navy), 1px 1.73px 0 var(--navy), 0px 2px 0 var(--navy), -1px 1.73px 0 var(--navy), -1.73px 1px 0 var(--navy), -2px 0px 0 var(--navy), -1.73px -1px 0 var(--navy), -1px -1.73px 0 var(--navy), -0px -2px 0 var(--navy), 1px -1.73px 0 var(--navy), 1.73px -1px 0 var(--navy), 0 6px 0 var(--magic-dark); margin-bottom:clamp(18px,3vh,32px);}
+.grade-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:clamp(14px,2vw,26px); width:min(680px,84vw);}
+.grade-card{
+  background:var(--white); border:4px solid var(--navy); border-radius:26px; cursor:pointer;
+  padding:clamp(16px,2.6vh,28px) 10px; text-align:center; box-shadow:0 8px 0 var(--navy), var(--shadow);
+  font-family:var(--font-display); font-weight:800; color:var(--navy); transition:transform .15s;
+}
+.grade-card:hover{transform:translateY(-4px);}
+.grade-card:active{transform:translateY(3px); box-shadow:0 4px 0 var(--navy);}
+.grade-card .grade-icon{font-size:clamp(40px,5.5vw,72px); display:block; margin-bottom:6px;}
+.grade-card .grade-name{font-size:clamp(22px,2.8vw,36px);}
+.grade-card .grade-worlds{font-size:clamp(12px,1.3vw,16px); color:var(--navy-soft); margin-top:4px; font-weight:700;}
+.title-hill{position:absolute; bottom:-40px; left:0; width:100%; height:220px; background:var(--meadow-dark); border-radius:50% 50% 0 0 / 100% 100% 0 0; transform:scale(1.4); pointer-events:none;}
+
+/* =========================================================
+   WORLD MAP SCREEN
+   ========================================================= */
+#worldmap-screen{background:linear-gradient(180deg,#7FD4FF 0%, #CDEFA5 55%, #8FCB6B 100%);}
+.map-topbar{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:clamp(16px,2.4vh,32px) clamp(20px,3vw,48px); z-index:5; flex-shrink:0;
+}
+.map-title{font-family:var(--font-display); font-size:clamp(24px,3vw,40px); color:var(--white); text-shadow:2px 0px 0 var(--navy), 1.73px 1px 0 var(--navy), 1px 1.73px 0 var(--navy), 0px 2px 0 var(--navy), -1px 1.73px 0 var(--navy), -1.73px 1px 0 var(--navy), -2px 0px 0 var(--navy), -1.73px -1px 0 var(--navy), -1px -1.73px 0 var(--navy), -0px -2px 0 var(--navy), 1px -1.73px 0 var(--navy), 1.73px -1px 0 var(--navy); font-weight:800;}
+.map-topbar-right{display:flex; gap:clamp(10px,1.4vw,14px); align-items:center;}
+.map-total-stars{
+  background:rgba(255,255,255,.85); border-radius:24px; padding:clamp(8px,1vh,10px) clamp(14px,2vw,22px); display:flex; align-items:center; gap:8px;
+  font-family:var(--font-display); font-weight:800; font-size:clamp(16px,1.6vw,24px); color:var(--navy); box-shadow:var(--shadow); white-space:nowrap;
+}
+
+/* Main map area — a responsive row of world cards (grid/flex),
+   no absolute pixel placement. Only ambient decor stays absolute. */
+.map-area{
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:clamp(16px,3vh,40px) clamp(16px,3vw,40px); min-height:0;
+}
+.world-nodes{
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:clamp(10px,1.6vw,26px); width:100%; max-width:1600px;
+}
+.world-connector{
+  font-size:clamp(20px,2.2vw,34px); color:var(--white); opacity:.85;
+  text-shadow:1px 0px 0 var(--navy), 0.71px 0.71px 0 var(--navy), 0px 1px 0 var(--navy), -0.71px 0.71px 0 var(--navy), -1px 0px 0 var(--navy), -0.71px -0.71px 0 var(--navy), -0px -1px 0 var(--navy), 0.71px -0.71px 0 var(--navy); flex-shrink:0; align-self:center;
+}
+
+.world-node{
+  width:clamp(190px,20vw,300px); display:flex; flex-direction:column; align-items:center;
+  cursor:pointer; position:relative; animation:floatY 3.4s ease-in-out infinite;
+}
+.world-node.locked{cursor:not-allowed; animation:none;}
+.world-node-badge{
+  width:clamp(120px,13vw,200px); aspect-ratio:1/1; border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:clamp(52px,6.5vw,96px);
+  background:radial-gradient(circle at 35% 30%, #fff, var(--white) 40%, #eee 100%);
+  box-shadow:0 10px 0 rgba(0,0,0,.18), inset 0 0 0 8px rgba(255,255,255,.6), 0 18px 26px rgba(20,10,50,.2);
+  border:6px solid var(--white);
+  transition:transform .18s cubic-bezier(.2,.8,.3,1.3); position:relative;
+}
+.world-node:hover .world-node-badge{transform:scale(1.08) translateY(-6px);}
+.world-node.locked .world-node-badge{filter:grayscale(1) brightness(.75); cursor:not-allowed;}
+.world-node-lock{position:absolute; top:6px; right:6px; font-size:clamp(24px,3vw,40px); filter:drop-shadow(0 3px 2px rgba(0,0,0,.4));}
+.world-node-label{
+  font-family:var(--font-display); font-weight:800; font-size:clamp(18px,2vw,26px); color:var(--white);
+  text-shadow:1.6px 0px 0 var(--navy), 1.13px 1.13px 0 var(--navy), 0px 1.6px 0 var(--navy), -1.13px 1.13px 0 var(--navy), -1.6px 0px 0 var(--navy), -1.13px -1.13px 0 var(--navy), -0px -1.6px 0 var(--navy), 1.13px -1.13px 0 var(--navy); margin-top:10px; text-align:center;
+}
+.world-node-range{font-family:var(--font-display); font-size:clamp(12px,1.2vw,16px); color:var(--navy); background:var(--gold); border-radius:12px; padding:3px 12px; margin-top:4px; font-weight:700; white-space:nowrap;}
+.world-node-progress{width:80%; max-width:170px; height:12px; background:rgba(255,255,255,.6); border-radius:8px; margin-top:8px; overflow:hidden; box-shadow:inset 0 0 0 2px rgba(0,0,0,.08);}
+.world-node-progress-fill{height:100%; background:linear-gradient(90deg,var(--coral),var(--gold)); border-radius:8px; transition:width .6s cubic-bezier(.2,.8,.3,1);}
+.world-node-stars{margin-top:6px;}
+
+/* =========================================================
+   WORLD SCREEN
+   ========================================================= */
+.world-scene{position:absolute; inset:0; overflow:hidden; display:flex; flex-direction:column;}
+.world-topbar{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:clamp(16px,2.4vh,32px) clamp(20px,3vw,48px); z-index:6; flex-shrink:0; gap:16px;
+}
+.world-topbar-right{display:flex; gap:clamp(10px,1.4vw,14px);}
+.world-topbar-title{
+  flex:1; text-align:center; font-family:var(--font-display); font-weight:800;
+  font-size:clamp(20px,2.2vw,32px); color:var(--white); text-shadow:1.4px 0px 0 var(--navy), 0.99px 0.99px 0 var(--navy), 0px 1.4px 0 var(--navy), -0.99px 0.99px 0 var(--navy), -1.4px 0px 0 var(--navy), -0.99px -0.99px 0 var(--navy), -0px -1.4px 0 var(--navy), 0.99px -0.99px 0 var(--navy);
+}
+.world-heading{z-index:6; text-align:center; flex-shrink:0; padding:0 16px clamp(6px,1.2vh,14px);}
+.world-heading h2{font-family:var(--font-display); font-size:clamp(28px,4vw,44px); color:var(--white); text-shadow:2px 0px 0 var(--navy), 1.73px 1px 0 var(--navy), 1px 1.73px 0 var(--navy), 0px 2px 0 var(--navy), -1px 1.73px 0 var(--navy), -1.73px 1px 0 var(--navy), -2px 0px 0 var(--navy), -1.73px -1px 0 var(--navy), -1px -1.73px 0 var(--navy), -0px -2px 0 var(--navy), 1px -1.73px 0 var(--navy), 1.73px -1px 0 var(--navy); margin:0;}
+.world-heading .range{font-size:clamp(13px,1.4vw,18px); color:var(--white); background:rgba(0,0,0,.25); border-radius:14px; padding:2px 16px; display:inline-block; margin-top:6px; font-weight:700;}
+
+.activity-row{
+  flex:1; min-height:0; display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:clamp(24px,3.5vw,56px); z-index:6; padding:clamp(10px,2vh,20px) clamp(16px,3vw,40px);
+}
+.activity-card{
+  width:clamp(190px,18vw,280px); background:var(--cream); border-radius:28px; padding:clamp(18px,2vw,26px) clamp(14px,1.6vw,20px); text-align:center;
+  box-shadow:0 12px 0 rgba(0,0,0,.2), 0 22px 30px rgba(20,10,50,.2); cursor:pointer; transition:transform .18s cubic-bezier(.2,.8,.3,1.3);
+  border:5px solid var(--white); position:relative;
+}
+.activity-card:hover{transform:translateY(-8px) scale(1.04);}
+.activity-card:active{transform:translateY(2px) scale(.98);}
+.activity-card.locked{filter:grayscale(1) brightness(.88); cursor:not-allowed;}
+.activity-card.locked:hover{transform:none;}
+.activity-lock{position:absolute; top:10px; right:12px; font-size:clamp(20px,2.2vw,30px); filter:drop-shadow(0 2px 2px rgba(0,0,0,.35));}
+.activity-icon{font-size:clamp(44px,5.5vw,70px); display:block; margin-bottom:10px;}
+.activity-name{font-family:var(--font-display); font-size:clamp(18px,2.2vw,26px); font-weight:800; color:var(--navy);}
+.activity-card .stars-row{justify-content:center; margin-top:10px;}
+
+.world-progress-wrap{width:min(900px,82vw); margin:0 auto; padding-bottom:clamp(24px,4.5vh,50px); z-index:6; text-align:center; flex-shrink:0;}
+.world-progress-label{font-family:var(--font-display); color:var(--white); text-shadow:1.4px 0px 0 var(--navy), 0.99px 0.99px 0 var(--navy), 0px 1.4px 0 var(--navy), -0.99px 0.99px 0 var(--navy), -1.4px 0px 0 var(--navy), -0.99px -0.99px 0 var(--navy), -0px -1.4px 0 var(--navy), 0.99px -0.99px 0 var(--navy); font-size:clamp(15px,1.6vw,20px); margin-bottom:8px; font-weight:700;}
+.world-progress-bar{width:100%; height:clamp(18px,2.4vh,26px); background:rgba(255,255,255,.5); border-radius:16px; overflow:hidden; box-shadow:inset 0 0 0 3px rgba(0,0,0,.12);}
+.world-progress-fill{height:100%; background:linear-gradient(90deg,var(--coral),var(--gold)); transition:width .5s ease;}
+
+/* Theme backgrounds */
+.theme-tinytown{background:linear-gradient(180deg,#7FD4FF 0%, #E9F9C7 60%, #9BD770 100%);}
+.theme-numberforest{background:linear-gradient(180deg,#3FA6A6 0%, #1F5C4E 70%, #143C34 100%);}
+.theme-hundredcastle{background:linear-gradient(180deg,#8E9BD9 0%, #5A5FA8 65%, #3A3170 100%);}
+.theme-thousandsgalaxy{background:radial-gradient(circle at 30% 20%, #2A1F5C 0%, #0E0B22 70%);}
+
+.decor{position:absolute;}
+
+/* =========================================================
+   LEARN MODE
+   ========================================================= */
+.learn-scene{position:absolute; inset:0; overflow:hidden; display:flex; flex-direction:column;}
+.learn-card-wrap{
+  flex:1; min-height:0; display:flex; align-items:center; justify-content:center;
+  gap:clamp(12px,2.4vw,40px); padding:clamp(10px,2vh,20px) clamp(16px,3vw,40px); z-index:6;
+}
+.learn-nav-btn{
+  width:clamp(56px,6vw,90px); height:clamp(56px,6vw,90px); border-radius:50%;
+  border:none; cursor:pointer; flex-shrink:0; font-size:clamp(24px,2.6vw,36px);
+  background:rgba(255,255,255,.85); box-shadow:0 6px 0 rgba(0,0,0,.18);
+  transition:transform .12s ease;
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.learn-nav-btn:hover:not(:disabled){transform:translateY(-3px) scale(1.05);}
+.learn-nav-btn:active:not(:disabled){transform:translateY(2px);}
+.learn-nav-btn:disabled{opacity:.3; cursor:not-allowed;}
+/* A geometric triangle centers perfectly regardless of font/platform — unlike the ◀/▶ glyphs' uneven bounding boxes. */
+.learn-nav-btn::before{
+  content:''; width:0; height:0; border-top:.32em solid transparent; border-bottom:.32em solid transparent;
+}
+#btn-learn-prev::before{border-right:.42em solid var(--navy); margin-right:-.06em;}
+#btn-learn-next::before{border-left:.42em solid var(--navy); margin-left:-.06em;}
+
+.learn-card{
+  width:min(760px,60vw); max-width:90vw; background:var(--cream); border-radius:36px;
+  padding:clamp(24px,4vh,48px) clamp(20px,4vw,60px); text-align:center;
+  box-shadow:0 14px 0 rgba(0,0,0,.2); border:6px solid var(--white);
+  display:flex; flex-direction:column; align-items:center; gap:clamp(8px,1.4vh,16px);
+  max-height:82vh; overflow-y:auto;
+}
+.learn-tag{
+  font-family:var(--font-display); font-weight:800; letter-spacing:.5px; text-transform:uppercase;
+  font-size:clamp(13px,1.5vw,18px); color:var(--white); background:var(--magic);
+  border-radius:14px; padding:5px 16px;
+}
+.learn-number{
+  font-family:var(--font-display); font-weight:800; color:var(--navy);
+  font-size:clamp(56px,9vw,150px); line-height:1; text-shadow:2px 0px 0 var(--navy-soft), 1.73px 1px 0 var(--navy-soft), 1px 1.73px 0 var(--navy-soft), 0px 2px 0 var(--navy-soft), -1px 1.73px 0 var(--navy-soft), -1.73px 1px 0 var(--navy-soft), -2px 0px 0 var(--navy-soft), -1.73px -1px 0 var(--navy-soft), -1px -1.73px 0 var(--navy-soft), -0px -2px 0 var(--navy-soft), 1px -1.73px 0 var(--navy-soft), 1.73px -1px 0 var(--navy-soft);
+}
+.learn-word{
+  font-family:var(--font-display); font-weight:800; color:var(--coral-dark);
+  font-size:clamp(26px,4.2vw,60px); min-height:1.2em; line-height:1.15;
+}
+.learn-word.word-pop{animation:wordPop .45s cubic-bezier(.2,.9,.3,1.3);}
+@keyframes wordPop{0%{transform:scale(.7); opacity:0;}60%{transform:scale(1.08); opacity:1;}100%{transform:scale(1);}}
+.learn-speak{margin-top:2px;}
+
+/* Tiny Town — counting objects */
+.learn-objects{display:flex; flex-wrap:wrap; justify-content:center; gap:6px; max-width:520px;}
+.learn-object{font-size:clamp(20px,2.8vw,34px); animation:cardPop .4s cubic-bezier(.22,1.15,.36,1) both;}
+.learn-objects-empty{font-family:var(--font-display); font-weight:700; color:var(--navy-soft); font-size:clamp(16px,1.8vw,22px);}
+
+/* Number Forest / Hundred Castle — build equation chips */
+.learn-equation{display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:clamp(8px,1.4vw,16px);}
+.learn-equation-chip{
+  font-family:var(--font-display); font-weight:800; color:var(--navy);
+  font-size:clamp(22px,3.2vw,44px); background:var(--white); border:4px solid var(--gold);
+  border-radius:16px; padding:6px 18px; animation:cardPop .4s cubic-bezier(.22,1.15,.36,1) both;
+}
+.learn-equation-plus{font-family:var(--font-display); font-weight:800; font-size:clamp(20px,2.8vw,36px); color:var(--navy-soft);}
+
+/* Thousands Galaxy — place-value grouping */
+.learn-placevalue{display:flex; flex-direction:column; align-items:center; gap:10px;}
+.learn-placevalue-numeral{font-family:var(--font-display); font-weight:800; font-size:clamp(44px,6.6vw,96px);}
+.learn-placevalue-words{display:flex; flex-direction:column; gap:4px; font-family:var(--font-display); font-weight:800; font-size:clamp(18px,2.6vw,30px);}
+.learn-placevalue-legend{display:flex; gap:16px; font-family:var(--font-display); font-weight:700; font-size:clamp(12px,1.4vw,16px);}
+.grp-thousands{color:var(--magic-dark);}
+.grp-ones{color:var(--coral-dark);}
+
+/* Quick Check quiz interlude — reuses .qa-choices/.qa-choice for the option grid */
+.learn-check{display:flex; flex-direction:column; align-items:center; gap:clamp(10px,1.6vh,18px); width:100%;}
+.learn-check-header{display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;}
+.learn-check-prompt{font-family:var(--font-display); font-weight:800; color:var(--navy); font-size:clamp(22px,3vw,34px);}
+.learn-check-badge{
+  display:none; font-family:var(--font-display); font-weight:800; color:var(--meadow-dark);
+  font-size:clamp(12px,1.4vw,16px); background:rgba(79,174,121,.15); border-radius:10px; padding:3px 12px;
+}
+
+.complete-stars{font-size:clamp(30px,4vw,50px); gap:10px; margin-bottom:20px;}
+
+/* =========================================================
+   QUESTION / ANSWER ENGINE — shared visual language for any
+   screen that asks a question and checks a typed/tapped answer.
+   Used by both Flashcards and Practice Mode.
+   ========================================================= */
+.qa-scene{position:absolute; inset:0; overflow:hidden; display:flex; flex-direction:column;}
+
+/* Progress lives at the top for these modes */
+.qa-progress-top{
+  flex-shrink:0; width:min(1100px,92vw); margin:0 auto clamp(4px,1vh,10px); z-index:6;
+}
+.qa-stats-row{
+  display:flex; justify-content:center; align-items:center; gap:clamp(8px,1.4vw,18px);
+  margin-bottom:10px; flex-wrap:wrap;
+}
+.qa-stat{
+  font-family:var(--font-display); font-weight:700; color:var(--white);
+  text-shadow:1.2px 0px 0 var(--navy), 0.85px 0.85px 0 var(--navy), 0px 1.2px 0 var(--navy), -0.85px 0.85px 0 var(--navy), -1.2px 0px 0 var(--navy), -0.85px -0.85px 0 var(--navy), -0px -1.2px 0 var(--navy), 0.85px -0.85px 0 var(--navy); font-size:clamp(12px,1.2vw,16px);
+  background:rgba(0,0,0,.24); border-radius:14px; padding:6px 14px; white-space:nowrap;
+}
+
+.qa-main{
+  flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:clamp(6px,1.1vh,14px); padding:clamp(4px,1vh,10px) clamp(16px,3vw,40px); z-index:6;
+}
+
+.qa-question-card{
+  width:min(760px,60vw); max-width:94vw; max-height:100%; overflow-y:auto; background:var(--cream); border-radius:36px;
+  padding:clamp(14px,2.2vh,30px) clamp(18px,3.6vw,42px); text-align:center;
+  box-shadow:0 16px 0 rgba(0,0,0,.2), 0 26px 40px rgba(20,10,50,.28); border:6px solid var(--white);
+  display:flex; flex-direction:column; align-items:center; gap:clamp(6px,1vh,12px);
+}
+.qa-question-label{
+  font-family:var(--font-display); font-weight:700; color:var(--navy-soft);
+  font-size:clamp(14px,1.6vw,20px); letter-spacing:.5px; text-transform:uppercase;
+}
+.qa-question-value{
+  font-family:var(--font-display); font-weight:800; color:var(--navy); line-height:1.05;
+  font-size:clamp(46px,6.6vw,104px); text-shadow:2px 0px 0 var(--navy-soft), 1.73px 1px 0 var(--navy-soft), 1px 1.73px 0 var(--navy-soft), 0px 2px 0 var(--navy-soft), -1px 1.73px 0 var(--navy-soft), -1.73px 1px 0 var(--navy-soft), -2px 0px 0 var(--navy-soft), -1.73px -1px 0 var(--navy-soft), -1px -1.73px 0 var(--navy-soft), -0px -2px 0 var(--navy-soft), 1px -1.73px 0 var(--navy-soft), 1.73px -1px 0 var(--navy-soft);
+  word-break:break-word;
+}
+.qa-question-value.is-speaker{font-size:clamp(56px,7vw,110px); cursor:pointer;}
+/* Content-length tiers — a short "84" gets the huge default size above; longer numbers/phrases step down so the card, answer box, and keyboard all stay visible without scrolling. */
+.qa-question-value.qa-len-md{font-size:clamp(32px,4.8vw,68px);}
+.qa-question-value.qa-len-lg{font-size:clamp(24px,3.6vw,48px);}
+.qa-question-value.qa-len-xl{font-size:clamp(19px,2.6vw,34px);}
+
+.qa-answer-box{
+  width:100%; min-height:clamp(56px,7vh,80px); border-radius:20px;
+  background:var(--white); border:4px solid var(--magic);
+  display:flex; align-items:center; justify-content:center; gap:4px; flex-wrap:wrap;
+  font-family:var(--font-display); font-weight:800; color:var(--navy);
+  font-size:clamp(24px,3.4vw,46px); padding:8px 18px;
+}
+.qa-cursor{
+  display:inline-block; width:3px; height:.9em; background:var(--magic);
+  animation:cursorBlink 1s step-end infinite;
+}
+@keyframes cursorBlink{0%,50%{opacity:1;}51%,100%{opacity:0;}}
+
+.qa-feedback{
+  min-height:1.6em; font-family:var(--font-display); font-weight:800;
+  font-size:clamp(20px,2.6vw,32px); text-align:center;
+}
+.qa-feedback.correct{color:var(--meadow-dark); animation:feedbackPop .4s cubic-bezier(.2,.9,.3,1.3);}
+.qa-feedback.wrong{color:var(--coral-dark); animation:feedbackPop .4s cubic-bezier(.2,.9,.3,1.3);}
+.qa-correct-answer{display:block; margin-top:4px; font-size:.7em; color:var(--navy-soft);}
+@keyframes feedbackPop{0%{transform:scale(.7); opacity:0;}60%{transform:scale(1.08); opacity:1;}100%{transform:scale(1);}}
+
+.qa-continue-btn{
+  display:none; min-width:220px; font-size:clamp(18px,2vw,26px);
+  background:linear-gradient(180deg,var(--meadow),var(--meadow-dark));
+}
+.qa-continue-btn.visible{display:inline-flex; align-items:center; justify-content:center; animation:cardPop .4s cubic-bezier(.22,1.15,.36,1) both;}
+
+/* Custom touch keyboard — numeric + alphabet, never the native OS keyboard */
+.qa-keyboard-wrap{
+  flex-shrink:0; display:flex; justify-content:center; padding:clamp(6px,1.2vh,14px) clamp(10px,2vw,24px) clamp(12px,2vh,22px);
+  z-index:6; min-height:clamp(0px,0px,0px);
+}
+.qa-keyboard-wrap:empty{padding:0; min-height:0;}
+.keyboard{
+  display:flex; flex-direction:column; gap:clamp(6px,.9vh,10px); align-items:center;
+  animation:cardPop .4s cubic-bezier(.22,1.1,.36,1) both;
+}
+.keyboard-row{display:flex; gap:clamp(5px,.8vw,9px); justify-content:center; flex-wrap:nowrap;}
+.key{
+  min-width:clamp(36px,4.4vw,58px); min-height:clamp(40px,5.6vh,58px);
+  border:none; border-radius:12px; cursor:pointer; flex-shrink:0;
+  background:var(--white); color:var(--navy);
+  font-family:var(--font-display); font-weight:800; font-size:clamp(14px,1.6vw,22px);
+  box-shadow:0 4px 0 rgba(0,0,0,.15), 0 8px 14px rgba(20,10,50,.14);
+  transition:transform .12s cubic-bezier(.2,.8,.3,1.3), box-shadow .12s ease;
+}
+.key:hover{transform:translateY(-2px); box-shadow:0 4px 0 rgba(0,0,0,.15), 0 8px 14px rgba(20,10,50,.14), 0 0 0 4px rgba(255,255,255,.3);}
+.key:active{transform:translateY(3px) scale(.94); box-shadow:0 1px 0 rgba(0,0,0,.15);}
+.key-wide{min-width:clamp(120px,18vw,240px);}
+.key-submit{background:linear-gradient(180deg,var(--meadow),var(--meadow-dark)); color:var(--white);}
+.key-backspace{background:linear-gradient(180deg,var(--coral),var(--coral-dark)); color:var(--white);}
+.key:disabled{opacity:.4; cursor:not-allowed; transform:none;}
+
+/* Multiple choice */
+.qa-choices{display:grid; grid-template-columns:repeat(2,1fr); gap:clamp(10px,1.6vw,20px); width:100%; max-width:640px;}
+.qa-choices.qa-choices-1col{grid-template-columns:1fr; max-width:520px;}
+.qa-choice{
+  min-height:clamp(60px,7vh,84px); height:auto; border:4px solid var(--white); border-radius:20px; cursor:pointer;
+  background:var(--white); color:var(--navy); font-family:var(--font-display); font-weight:800;
+  font-size:clamp(18px,2.2vw,28px); box-shadow:0 6px 0 rgba(0,0,0,.15), 0 12px 18px rgba(20,10,50,.16);
+  transition:transform .14s cubic-bezier(.2,.8,.3,1.3), background .15s ease, color .15s ease;
+  padding:8px 14px; white-space:normal; line-height:1.25; word-break:break-word;
+}
+.qa-choices.qa-choices-compact .qa-choice{font-size:clamp(13px,1.5vw,18px); padding:6px 10px;}
+.qa-choice:hover{transform:translateY(-3px) scale(1.02);}
+.qa-choice:active{transform:translateY(2px) scale(.97);}
+.qa-choice.correct{background:linear-gradient(180deg,var(--meadow),var(--meadow-dark)); color:var(--white);}
+.qa-choice.wrong{background:linear-gradient(180deg,var(--coral),var(--coral-dark)); color:var(--white);}
+.qa-choice:disabled{cursor:not-allowed;}
+
+/* Build the Number — tap word blocks into order */
+.qa-build-slots, .qa-build-tray{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; width:100%;}
+.qa-build-slots{min-height:clamp(56px,7vh,76px);}
+.qa-slot{
+  min-width:100px; min-height:clamp(50px,6vh,68px); border-radius:14px;
+  border:3px dashed var(--magic); display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-display); font-weight:800; font-size:clamp(16px,1.8vw,22px); color:var(--navy);
+}
+.qa-slot.filled{border-style:solid; background:var(--white);}
+.qa-block{
+  min-width:100px; min-height:clamp(50px,6vh,68px); padding:0 16px; border-radius:14px; border:none; cursor:pointer;
+  background:linear-gradient(180deg,var(--gold),var(--gold-dark)); color:var(--navy);
+  font-family:var(--font-display); font-weight:800; font-size:clamp(16px,1.8vw,22px);
+  box-shadow:0 5px 0 rgba(0,0,0,.15), 0 10px 16px rgba(20,10,50,.16);
+  transition:transform .14s cubic-bezier(.2,.8,.3,1.3);
+}
+.qa-block:hover{transform:translateY(-3px);}
+.qa-block:active{transform:translateY(2px) scale(.96);}
+.qa-block:disabled{opacity:.3; cursor:not-allowed; transform:none;}
+.qa-build-slots.qa-many-blocks .qa-slot, .qa-build-tray.qa-many-blocks .qa-block{
+  min-width:64px; font-size:clamp(12px,1.4vw,17px); padding:0 10px;
+}
+
+/* =========================================================
+   MODALS (Settings)
+   ========================================================= */
+.modal-overlay{
+  position:absolute; inset:0; background:rgba(15,10,35,.6); z-index:50;
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; visibility:hidden; transition:opacity .3s ease;
+}
+.modal-overlay.active{opacity:1; visibility:visible;}
+.modal-box{
+  width:min(640px,88vw); max-height:88vh; overflow-y:auto;
+  background:var(--cream); border-radius:32px; padding:clamp(24px,3.6vh,40px) clamp(24px,4vw,46px); box-shadow:0 20px 0 rgba(0,0,0,.25);
+  border:6px solid var(--white); transform:scale(.85); transition:transform .3s cubic-bezier(.2,.9,.3,1.2);
+}
+.modal-overlay.active .modal-box{transform:scale(1);}
+.modal-title{font-family:var(--font-display); font-size:clamp(26px,3.4vw,38px); font-weight:800; color:var(--navy); margin:0 0 26px; text-align:center;}
+.modal-row{display:flex; align-items:center; justify-content:space-between; padding:clamp(10px,1.6vh,16px) 4px; border-bottom:2px dashed rgba(0,0,0,.08); gap:12px;}
+.modal-row:last-of-type{border-bottom:none;}
+.modal-row-label{font-family:var(--font-display); font-size:clamp(17px,1.9vw,22px); font-weight:700; color:var(--navy); display:flex; align-items:center; gap:10px;}
+
+.toggle{width:64px; height:36px; border-radius:22px; background:#D8D2EE; position:relative; cursor:pointer; transition:background .2s ease; border:none; flex-shrink:0;}
+.toggle::after{content:'';position:absolute; top:4px; left:4px; width:28px; height:28px; border-radius:50%; background:var(--white); box-shadow:0 2px 4px rgba(0,0,0,.3); transition:transform .2s ease;}
+.toggle.on{background:var(--meadow);}
+.toggle.on::after{transform:translateX(28px);}
+
+.modal-actions{display:flex; gap:16px; margin-top:30px; flex-wrap:wrap;}
+.modal-actions .btn{flex:1; min-width:120px; font-size:clamp(16px,1.8vw,22px); padding:clamp(10px,1.4vh,14px) 0; min-height:clamp(48px,6vh,60px);}
+
+/* =========================================================
+   TEACHER MODE BADGE
+   ========================================================= */
+#teacher-mode-badge{
+  display:none; position:fixed; top:8px; left:50%; transform:translateX(-50%); z-index:200;
+  font-family:var(--font-display); font-weight:800; font-size:clamp(11px,1.2vw,14px);
+  color:var(--white); background:var(--coral-dark); padding:4px 14px; border-radius:12px;
+  align-items:center; gap:4px; pointer-events:none; box-shadow:0 3px 8px rgba(0,0,0,.3);
+  white-space:nowrap;
+}
+
+/* =========================================================
+   SIGNATURE
+   ========================================================= */
+#game-signature{
+  position:fixed; bottom:6px; right:12px; z-index:150;
+  font-family:var(--font-display); font-weight:700; font-style:italic;
+  font-size:clamp(10px,1.1vw,13px); color:rgba(255,255,255,.55);
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+  pointer-events:auto; user-select:none; letter-spacing:.02em; cursor:default;
+  padding:6px 8px; /* bigger tap target for the hidden 5-tap teacher gate */
+}
+</style>
+</head>
+<body>
+
+<div id="orientation-lock">
+  <div class="rotate-icon">🔄</div>
+  <div style="font-size:26px;font-weight:800;">Please rotate your device</div>
+  <div style="font-size:18px;opacity:.8;margin-top:8px;">Number Kingdom is best played in landscape mode</div>
+</div>
+
+<div id="game-root">
+
+    <!-- ================= SPLASH SCREEN ================= -->
+    <section id="splash-screen" class="screen active">
+      <div class="decor-layer" id="splash-decor"></div>
+      <div class="splash-inner">
+        <div class="splash-logo">👑 NUMBER KINGDOM</div>
+        <div class="splash-sub">A Magical Number Adventure</div>
+        <div class="splash-loading"><div class="splash-loading-bar" id="splash-bar"></div></div>
+      </div>
+    </section>
+
+    <!-- ================= TITLE SCREEN ================= -->
+    <section id="title-screen" class="screen">
+      <div class="decor-layer" id="title-decor"></div>
+      <div class="title-hill"></div>
+      <div class="title-hero">
+        <div class="title-crown float-el">👑</div>
+        <div class="title-name">NUMBER <span>KINGDOM</span></div>
+        <div class="title-tag">LEARN · PLAY · CONQUER NUMBERS</div>
+        <div class="title-menu">
+          <button class="btn btn-primary" id="btn-play">▶ PLAY</button>
+          <button class="btn btn-secondary" id="btn-settings-title">⚙ SETTINGS</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= GRADE SELECT SCREEN ================= -->
+    <section id="grade-screen" class="screen">
+      <div class="decor-layer" id="grade-decor"></div>
+      <div class="title-hill"></div>
+      <div class="map-topbar" style="position:absolute; top:0; left:0; right:0; z-index:5;">
+        <button class="icon-btn" id="btn-grade-home" title="Title Screen">🏠</button>
+        <div></div>
+        <button class="icon-btn" id="btn-grade-settings" title="Settings">⚙</button>
+      </div>
+      <div class="title-hero">
+        <div class="grade-title">Choose Your Grade</div>
+        <div class="grade-grid" id="grade-grid"></div>
+      </div>
+    </section>
+
+    <!-- ================= WORLD MAP SCREEN ================= -->
+    <section id="worldmap-screen" class="screen">
+      <div class="decor-layer" id="map-decor"></div>
+      <div class="map-topbar">
+        <button class="icon-btn" id="btn-map-home" title="Title Screen">🏠</button>
+        <div class="map-title">World Map</div>
+        <div class="map-topbar-right">
+          <div class="map-total-stars"><span>⭐</span><span id="map-total-stars-val">0</span> / <span id="map-total-stars-max">36</span></div>
+          <button class="icon-btn" id="btn-map-settings" title="Settings">⚙</button>
+        </div>
+      </div>
+      <div class="map-area">
+        <div class="world-nodes" id="world-nodes"></div>
+      </div>
+    </section>
+
+    <!-- ================= WORLD SCREEN ================= -->
+    <section id="world-screen" class="screen">
+      <div class="world-scene" id="world-scene">
+        <div class="decor-layer" id="world-decor"></div>
+        <div class="world-topbar">
+          <button class="icon-btn" id="btn-world-home" title="World Map">🏠</button>
+          <div class="world-topbar-right">
+            <button class="icon-btn mute-btn" id="btn-world-mute" title="Mute">🔊</button>
+            <button class="icon-btn" id="btn-world-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn" id="btn-world-settings" title="Settings">⚙</button>
+          </div>
+        </div>
+        <div class="world-heading">
+          <h2 id="world-heading-name">World Name</h2>
+          <div class="range" id="world-heading-range">0–20</div>
+        </div>
+        <div class="activity-row" id="activity-row"></div>
+        <div class="world-progress-wrap">
+          <div class="world-progress-label" id="world-progress-label">0 / 9 Stars — 0% Complete</div>
+          <div class="world-progress-bar"><div class="world-progress-fill" id="world-progress-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LEARN MODE SCREEN ================= -->
+    <section id="learn-screen" class="screen">
+      <div class="learn-scene" id="learn-scene">
+        <div class="decor-layer" id="learn-decor"></div>
+        <div class="world-topbar">
+          <button class="icon-btn" id="btn-learn-home" title="Back to World">🏠</button>
+          <div class="world-topbar-title" id="learn-heading">World — Learn</div>
+          <div class="world-topbar-right">
+            <button class="icon-btn mute-btn" id="btn-learn-mute" title="Mute">🔊</button>
+            <button class="icon-btn" id="btn-learn-settings" title="Settings">⚙</button>
+          </div>
+        </div>
+        <div class="learn-card-wrap" id="learn-card-wrap">
+          <button class="learn-nav-btn" id="btn-learn-prev" title="Previous"></button>
+          <div class="learn-card" id="learn-card">
+            <div class="learn-tag" id="learn-tag"></div>
+            <div class="learn-number" id="learn-number">7</div>
+            <div class="learn-objects" id="learn-objects"></div>
+            <div class="learn-equation" id="learn-equation"></div>
+            <div class="learn-placevalue" id="learn-placevalue"></div>
+            <div class="learn-word" id="learn-word">Seven</div>
+            <button class="icon-btn learn-speak" id="btn-learn-speak" title="Listen again">🔁</button>
+
+            <div class="learn-check" id="learn-check">
+              <div class="learn-check-header">
+                <div class="learn-check-prompt" id="learn-check-prompt"></div>
+                <span class="learn-check-badge" id="learn-check-badge">✓ Completed</span>
+              </div>
+              <div class="qa-choices" id="learn-check-choices"></div>
+            </div>
+
+            <button class="btn qa-continue-btn" id="btn-learn-finish">✓ FINISH</button>
+          </div>
+          <button class="learn-nav-btn" id="btn-learn-next" title="Next"></button>
+        </div>
+        <div class="world-progress-wrap">
+          <div class="world-progress-label" id="learn-progress-label">Card 1 / 21</div>
+          <div class="world-progress-bar"><div class="world-progress-fill" id="learn-progress-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Lesson Complete overlay -->
+      <div class="modal-overlay" id="lesson-complete-modal">
+        <div class="modal-box" style="text-align:center;">
+          <div style="font-size:clamp(50px,7vw,90px);">🏆</div>
+          <div class="modal-title">Lesson Complete!</div>
+          <div class="stars-row complete-stars" id="complete-stars" style="justify-content:center;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-lesson-complete-continue">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Missing Quick Check warning -->
+      <div class="modal-overlay" id="learn-checks-warning-modal">
+        <div class="modal-box" style="text-align:center;">
+          <div style="font-size:clamp(50px,7vw,90px);">🤔</div>
+          <div class="modal-title">Almost there!</div>
+          <p id="learn-checks-warning-text" style="font-family:var(--font-display); font-weight:700; color:var(--navy-soft); font-size:clamp(16px,2vw,22px); text-align:center;">You still have 2 Quick Checks to answer.</p>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-learn-goto-check">GO TO FIRST QUICK CHECK</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FLASHCARD MODE SCREEN ================= -->
+    <section id="flashcards-screen" class="screen">
+      <div class="qa-scene" id="flash-scene">
+        <div class="decor-layer" id="flash-decor"></div>
+        <div class="world-topbar">
+          <button class="icon-btn" id="btn-flash-home" title="Back to World">🏠</button>
+          <div class="world-topbar-title" id="flash-heading">World — Flashcards</div>
+          <div class="world-topbar-right">
+            <button class="icon-btn mute-btn" id="btn-flash-mute" title="Mute">🔊</button>
+            <button class="icon-btn" id="btn-flash-settings" title="Settings">⚙</button>
+          </div>
+        </div>
+
+        <div class="qa-progress-top">
+          <div class="qa-stats-row">
+            <div class="qa-stat" id="flash-stat-correct">Correct: 0 / 20</div>
+            <div class="qa-stat" id="flash-stat-incorrect">Incorrect: 0</div>
+            <div class="qa-stat" id="flash-stat-remaining">Remaining: 20</div>
+            <div class="qa-stat" id="flash-stat-streak">🔥 Streak: 0</div>
+            <div class="qa-stat" id="flash-stat-best">🏅 Best: 0</div>
+            <div class="qa-stat" id="flash-stat-accuracy">🎯 100%</div>
+          </div>
+          <div class="world-progress-bar"><div class="world-progress-fill" id="flash-progress-fill" style="width:0%"></div></div>
+        </div>
+
+        <div class="qa-main">
+          <div class="qa-question-card" id="flash-question-card">
+            <div class="qa-question-label" id="flash-question-label">Type the word:</div>
+            <div class="qa-question-value" id="flash-question-value">84</div>
+            <div class="qa-answer-box">
+              <span id="flash-answer-text"></span><span class="qa-cursor"></span>
+            </div>
+            <div class="qa-feedback" id="flash-feedback"></div>
+            <button class="btn qa-continue-btn" id="btn-flash-continue">✓ CONTINUE</button>
+          </div>
+        </div>
+
+        <div class="qa-keyboard-wrap" id="flash-keyboard-wrap"></div>
+      </div>
+
+      <!-- Session Complete overlay -->
+      <div class="modal-overlay" id="flash-complete-modal">
+        <div class="modal-box" style="text-align:center;">
+          <div style="font-size:clamp(50px,7vw,90px);">🎉</div>
+          <div class="modal-title">Excellent!<br>Flashcards Complete!</div>
+          <div class="stars-row complete-stars" id="flash-complete-stars" style="justify-content:center;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-flash-complete-continue">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PRACTICE MODE SCREEN ================= -->
+    <section id="practice-screen" class="screen">
+      <div class="qa-scene" id="practice-scene">
+        <div class="decor-layer" id="practice-decor"></div>
+        <div class="world-topbar">
+          <button class="icon-btn" id="btn-practice-home" title="Back to World">🏠</button>
+          <div class="world-topbar-title" id="practice-heading">World — Practice</div>
+          <div class="world-topbar-right">
+            <button class="icon-btn mute-btn" id="btn-practice-mute" title="Mute">🔊</button>
+            <button class="icon-btn" id="btn-practice-settings" title="Settings">⚙</button>
+          </div>
+        </div>
+
+        <div class="qa-progress-top">
+          <div class="qa-stats-row">
+            <div class="qa-stat" id="practice-stat-correct">Correct: 0 / 20</div>
+            <div class="qa-stat" id="practice-stat-incorrect">Incorrect: 0</div>
+            <div class="qa-stat" id="practice-stat-remaining">Remaining: 20</div>
+            <div class="qa-stat" id="practice-stat-streak">🔥 Streak: 0</div>
+            <div class="qa-stat" id="practice-stat-best">🏅 Best: 0</div>
+            <div class="qa-stat" id="practice-stat-accuracy">🎯 100%</div>
+          </div>
+          <div class="world-progress-bar"><div class="world-progress-fill" id="practice-progress-fill" style="width:0%"></div></div>
+        </div>
+
+        <div class="qa-main">
+          <div class="qa-question-card" id="practice-question-card">
+            <div class="qa-question-label" id="practice-question-label">Write the number:</div>
+            <div class="qa-question-value" id="practice-question-value">Forty-Eight</div>
+
+            <div class="qa-answer-box" id="practice-answer-box" style="display:none;">
+              <span id="practice-answer-text"></span><span class="qa-cursor"></span>
+            </div>
+
+            <div class="qa-choices" id="practice-choices" style="display:none;"></div>
+
+            <div class="qa-build-slots" id="practice-build-slots" style="display:none;"></div>
+            <div class="qa-build-tray" id="practice-build-tray" style="display:none;"></div>
+
+            <div class="qa-feedback" id="practice-feedback"></div>
+            <button class="btn qa-continue-btn" id="btn-practice-continue">✓ CONTINUE</button>
+          </div>
+        </div>
+
+        <div class="qa-keyboard-wrap" id="practice-keyboard-wrap"></div>
+      </div>
+
+      <!-- Practice Complete overlay -->
+      <div class="modal-overlay" id="practice-complete-modal">
+        <div class="modal-box" style="text-align:center;">
+          <div style="font-size:clamp(50px,7vw,90px);">🏆</div>
+          <div class="modal-title">Practice Complete!</div>
+          <div class="stars-row complete-stars" id="practice-complete-stars" style="justify-content:center;"></div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-practice-complete-continue">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- World Complete overlay -->
+      <div class="modal-overlay" id="world-complete-modal">
+        <div class="modal-box" style="text-align:center;">
+          <div style="font-size:clamp(50px,7vw,90px);">🎉</div>
+          <div class="modal-title">World Complete!</div>
+          <p id="world-complete-text" style="font-family:var(--font-display); font-weight:700; color:var(--navy-soft); font-size:clamp(15px,1.8vw,20px); text-align:center;">You've mastered every activity in this world!</p>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="btn-world-complete-continue">CONTINUE</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS MODAL ================= -->
+    <div class="modal-overlay" id="settings-modal">
+      <div class="modal-box">
+        <div class="modal-title">⚙ Settings</div>
+        <div class="modal-row">
+          <div class="modal-row-label">🎵 Music</div>
+          <button class="toggle" id="toggle-music"></button>
+        </div>
+        <div class="modal-row">
+          <div class="modal-row-label">🔔 Sound Effects</div>
+          <button class="toggle" id="toggle-sfx"></button>
+        </div>
+        <div class="modal-row">
+          <div class="modal-row-label">🔇 Mute All</div>
+          <button class="toggle" id="toggle-mute"></button>
+        </div>
+        <div class="modal-row">
+          <div class="modal-row-label">⛶ Fullscreen</div>
+          <button class="toggle" id="toggle-fullscreen"></button>
+        </div>
+        <!-- Hidden from students: only appears while Teacher Mode is on (entered by tapping the signature 5×). -->
+        <div class="modal-row" id="teacher-mode-row" style="display:none;">
+          <div class="modal-row-label">🔐 Teacher Mode</div>
+          <button class="btn btn-secondary" id="btn-teacher-mode-toggle" style="min-height:48px;font-size:15px;padding:8px 18px;">Exit</button>
+        </div>
+        <div class="modal-row" id="reset-student-progress-row" style="display:none;">
+          <div class="modal-row-label">🗑 Reset Student Progress</div>
+          <button class="btn btn-secondary" id="btn-reset-student-progress" style="min-height:48px;font-size:15px;padding:8px 18px;">Reset…</button>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="btn-settings-close">CLOSE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TEACHER PASSWORD MODAL ================= -->
+    <div class="modal-overlay" id="teacher-password-modal">
+      <div class="modal-box" style="text-align:center;">
+        <div class="modal-title">🔐 Teacher Mode</div>
+        <p style="font-family:var(--font-display); font-weight:700; color:var(--navy-soft); font-size:clamp(15px,1.8vw,20px); margin:0 0 16px;">Enter the teacher password to continue.</p>
+        <div class="qa-answer-box" style="margin-bottom:8px;"><span id="teacher-password-text"></span><span class="qa-cursor"></span></div>
+        <div id="teacher-password-error" style="font-family:var(--font-display); font-weight:800; color:var(--coral-dark); min-height:1.4em; font-size:clamp(13px,1.6vw,17px);"></div>
+        <div class="qa-keyboard-wrap" id="teacher-password-keyboard"></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btn-teacher-password-cancel" style="color:var(--navy);">CANCEL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= RESET STUDENT PROGRESS CONFIRM MODAL ================= -->
+    <div class="modal-overlay" id="reset-progress-confirm-modal">
+      <div class="modal-box" style="text-align:center;">
+        <div style="font-size:clamp(50px,7vw,90px);">⚠️</div>
+        <div class="modal-title">Reset Student Progress?</div>
+        <p style="font-family:var(--font-display); font-weight:700; color:var(--navy-soft); font-size:clamp(15px,1.8vw,20px);">This will delete all saved stars and progress. This cannot be undone.</p>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" id="btn-reset-progress-cancel" style="color:var(--navy);">CANCEL</button>
+          <button class="btn btn-secondary" id="btn-reset-progress-confirm">RESET PROGRESS</button>
+        </div>
+      </div>
+    </div>
+
+</div>
+
+<div id="teacher-mode-badge">👩‍🏫 TEACHER MODE</div>
+<div id="game-signature">Didem İnce</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   CONSTANTS — WORLD DEFINITIONS
+   ========================================================= */
+const WORLDS = [
+  {
+    id:'tinyTown', name:'Tiny Town', emoji:'🏡', range:'0 – 20', min:0, max:20,
+    theme:'theme-tinytown', unlockedByDefault:true
+  },
+  {
+    id:'numberForest', name:'Number Forest', emoji:'🌲', range:'20 – 100', min:20, max:100,
+    theme:'theme-numberforest', unlockedByDefault:false
+  },
+  {
+    id:'hundredCastle', name:'Hundred Castle', emoji:'🏰', range:'100 – 1 000', min:100, max:1000,
+    theme:'theme-hundredcastle', unlockedByDefault:false
+  },
+  {
+    id:'thousandsGalaxy', name:'Thousands Galaxy', emoji:'🚀', range:'1 000 – 999 999', min:1000, max:999999,
+    theme:'theme-thousandsgalaxy', unlockedByDefault:false
+  }
+];
+
+const ACTIVITIES = [
+  {id:'learn', name:'Learn', icon:'📖'},
+  {id:'flashcards', name:'Flashcards', icon:'🃏'},
+  {id:'practice', name:'Practice', icon:'🎯'}
+];
+
+/** Which worlds each grade sees on its World Map. Progress is shared across grades (same world = same save data). */
+const GRADES = [
+  { id:1, name:'Grade 1', icon:'🌱', worlds:['tinyTown'] },
+  { id:2, name:'Grade 2', icon:'🌿', worlds:['tinyTown','numberForest'] },
+  { id:3, name:'Grade 3', icon:'🌳', worlds:['numberForest','hundredCastle'] },
+  { id:4, name:'Grade 4', icon:'🚀', worlds:['hundredCastle','thousandsGalaxy'] }
+];
+
+const STARS_PER_ACTIVITY = 3;
+const STARS_PER_WORLD = ACTIVITIES.length * STARS_PER_ACTIVITY; // 9
+const TOTAL_STARS = STARS_PER_WORLD * WORLDS.length; // 36
+const SESSION_GOAL_CORRECT = 20; // correct answers needed to complete a Flashcards or Practice session
+
+/**
+ * TEACHER MODE PASSWORD — change this one line to set your own password.
+ * Matched case-insensitively. This is a simple "don't let students in by
+ * accident" gate for a local single-file game, not real security.
+ */
+const TEACHER_PASSWORD = "didem26";
+
+/* =========================================================
+   NUMBER → WORDS ENGINE
+   numberToBuildSteps() returns the cumulative construction of a
+   number's English name, e.g. for 248:
+     ['Two','Two Hundred','Two Hundred Forty','Two Hundred Forty-Eight']
+   Used both for the big word display and its build animation.
+   ========================================================= */
+const ONES_WORDS = ['Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten',
+  'Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+const TENS_WORDS = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+
+/** Cascading build steps for a 0-999 chunk, continuing from `prefix`. British English: "and" links a hundred (or a Thousand/Million prefix) to a trailing tens/ones group. */
+function chunkBuildSteps(chunk, prefix){
+  const steps = [];
+  let running = prefix;
+  const hundreds = Math.floor(chunk/100);
+  const rem = chunk % 100;
+
+  if(hundreds > 0){
+    running = (running ? running+' ' : '') + ONES_WORDS[hundreds];
+    steps.push(running);
+    running = running + ' Hundred';
+    steps.push(running);
+  }
+  if(rem > 0){
+    // "and" bridges Hundred->tens/ones within this chunk, or Thousand/Million->tens/ones when this chunk has no hundreds of its own.
+    const bridge = (hundreds > 0 || !!prefix) ? ' and ' : (running ? ' ' : '');
+    if(rem < 20){
+      running = running + bridge + ONES_WORDS[rem];
+      steps.push(running);
+    } else {
+      running = running + bridge + TENS_WORDS[Math.floor(rem/10)];
+      steps.push(running);
+      if(rem % 10 > 0){
+        running = running + '-' + ONES_WORDS[rem % 10];
+        steps.push(running);
+      }
+    }
+  }
+  if(hundreds === 0 && rem === 0 && !prefix){
+    steps.push('Zero');
+    running = 'Zero';
+  }
+  return { steps, finalWord: running };
+}
+
+/** Full cumulative build sequence for any non-negative integer up to millions. */
+function numberToBuildSteps(n){
+  if(n === 0) return ['Zero'];
+  const scales = [[1000000,'Million'],[1000,'Thousand'],[1,'']];
+  let allSteps = [];
+  let prefix = '';
+  let remaining = n;
+
+  scales.forEach(([value, name])=>{
+    const chunk = value === 1 ? remaining : Math.floor(remaining/value);
+    if(value !== 1) remaining = remaining % value;
+    if(chunk > 0){
+      const { steps, finalWord } = chunkBuildSteps(chunk, prefix);
+      if(name){
+        steps.forEach(s=> allSteps.push(s));
+        allSteps.push(finalWord + ' ' + name);
+        prefix = finalWord + ' ' + name;
+      } else {
+        steps.forEach(s=> allSteps.push(s));
+        prefix = finalWord;
+      }
+    }
+  });
+
+  return allSteps.length ? allSteps : [String(n)];
+}
+
+/** The final English word/phrase for a number — the last entry of its build sequence. */
+function wordFor(n){ return numberToBuildSteps(n).slice(-1)[0]; }
+
+/** The one place that turns a number into its on-screen digit form: space-separated thousands (11 546), never a comma. */
+function formatNumber(n){ return n.toLocaleString('en-US').replace(/,/g, ' '); }
+
+/** Inclusive integer range helper, e.g. range(0,20) -> [0,1,...,20]. */
+function range(a, b){
+  const out = [];
+  for(let i=a;i<=b;i++) out.push(i);
+  return out;
+}
+
+/** Fisher-Yates shuffle — returns a new array, never mutates the input. */
+function shuffleArray(arr){
+  const out = arr.slice();
+  for(let i = out.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Restarts a CSS animation on `el` by toggling `className` off and back on across a reflow. */
+function replayAnimation(el, className){
+  el.classList.remove(className);
+  void el.offsetWidth;
+  el.classList.add(className);
+}
+
+/** Swaps in the right qa-len-* tier for `el` based on how long `text` is, so a long number-word phrase shrinks instead of pushing the answer box/keyboard off screen. */
+function applyQaLengthClass(el, text){
+  el.classList.remove('qa-len-md', 'qa-len-lg', 'qa-len-xl');
+  const len = String(text).length;
+  if(len > 42) el.classList.add('qa-len-xl');
+  else if(len > 26) el.classList.add('qa-len-lg');
+  else if(len > 13) el.classList.add('qa-len-md');
+}
+
+/** Curated number decks — one per world, used by Learn Mode and by Flashcards/Practice for every world except Thousands Galaxy (see buildSessionQueue). */
+const NUMBERS_DATA = {
+  tinyTown: range(0, 20),
+  numberForest: [20,25,30,35,40,42,45,50,55,60,65,67,70,75,80,85,90,95,100],
+  hundredCastle: [100,150,200,248,300,375,450,500,620,750,800,900,1000]
+};
+
+/** A fresh batch of real, varied 4/5/6-digit numbers (not just round landmarks), evenly spread across digit-lengths and never repeated within the same batch. */
+function generateThousandsGalaxyPool(count){
+  const digitRanges = [[1000,9999],[10000,99999],[100000,999999]];
+  const seen = new Set();
+  const pool = [];
+  let guard = 0;
+  while(pool.length < count && guard < count * 20){
+    guard++;
+    const [lo, hi] = digitRanges[pool.length % digitRanges.length];
+    const n = lo + Math.floor(Math.random() * (hi - lo + 1));
+    if(seen.has(n)) continue;
+    seen.add(n);
+    pool.push(n);
+  }
+  return pool;
+}
+
+/** The number pool a Flashcards/Practice session draws from and reshuffles into when it runs dry. Thousands Galaxy gets a freshly generated varied batch every time (so students see real numbers like 59 123, not just round landmarks); every other world shuffles its curated list. */
+function buildSessionQueue(worldId){
+  return worldId === 'thousandsGalaxy' ? generateThousandsGalaxyPool(30) : shuffleArray(NUMBERS_DATA[worldId]);
+}
+
+/* =========================================================
+   ANSWER CHECKING — used by Flashcards and Practice Mode.
+   Exact spelling required; only case, hyphens, and extra
+   whitespace are ignored (numeric answers also ignore the
+   group-spacing shown on screen). No fuzzy/typo tolerance.
+   ========================================================= */
+
+/** Lowercases, treats hyphens as spaces, and collapses/trims whitespace. */
+function normalizeAnswer(s){
+  return String(s).toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** True only if `input` matches `target` exactly once normalized. Numeric targets ignore all whitespace (so "59 123" and "59123" both match "59123"); exactly "One Thousand" also accepts the natural short forms "Thousand"/"A Thousand". */
+function isAnswerCorrect(input, target){
+  if(/^\d+$/.test(String(target).trim())){
+    const a = String(input).replace(/\s+/g, '').trim();
+    if(!a) return false;
+    return a === String(target).replace(/\s+/g, '').trim();
+  }
+  const a = normalizeAnswer(input);
+  if(!a) return false;
+  const b = normalizeAnswer(target);
+  if(a === b) return true;
+  if(b === 'one thousand') return a === 'thousand' || a === 'a thousand';
+  return false;
+}
+
+/* =========================================================
+   PRACTICE MODE QUESTION HELPERS
+   ========================================================= */
+const PRACTICE_TYPES = ['writeNumber','writeWords','multipleChoice','listening','buildNumber'];
+
+/** Splits a number's word-name into the ordered blocks a student would drag into place, e.g. 342 -> ['Three','Hundred','Forty','Two']; 245 -> ['Two','Hundred','and','Forty','Five']. */
+function wordBlocksFor(value){
+  const steps = numberToBuildSteps(value);
+  const blocks = [];
+  let prevTokens = [];
+  steps.forEach(step=>{
+    const tokens = step.split(' ');
+    if(tokens.length > prevTokens.length){
+      blocks.push(...tokens.slice(prevTokens.length));
+    } else {
+      const last = tokens[tokens.length - 1];
+      const prevLast = prevTokens[prevTokens.length - 1];
+      if(last !== prevLast && last.includes('-')){
+        blocks.push(last.split('-').pop());
+      }
+    }
+    prevTokens = tokens;
+  });
+  return blocks;
+}
+
+/** `count` distinct values near `value`, clamped to [min,max] so distractors never leak outside the current world's range. */
+function nearbyDistinctValues(value, count, min, max){
+  const set = new Set();
+  let attempts = 0;
+  while(set.size < count && attempts < 60){
+    attempts++;
+    const span = Math.max(2, Math.round(value * 0.12)) + attempts;
+    const delta = (Math.floor(Math.random() * span * 2) - span) || 1;
+    const candidate = Math.min(max, Math.max(min, value + delta));
+    if(candidate !== value) set.add(candidate);
+  }
+  // Fallback fill, still clamped, in case the range is too narrow for 60 random attempts to find enough distinct values.
+  let fallback = 1;
+  while(set.size < count && fallback <= (max - min)){
+    const up = value + fallback, down = value - fallback;
+    if(up <= max && up !== value) set.add(up);
+    if(set.size < count && down >= min && down !== value) set.add(down);
+    fallback++;
+  }
+  return Array.from(set).slice(0, count);
+}
+
+/** Four shuffled multiple-choice option strings (numbers or words) within [min,max], one of them correct. */
+function buildMultipleChoiceOptions(value, asWords, min, max){
+  const correctText = asWords ? wordFor(value) : String(value);
+  const distractorTexts = nearbyDistinctValues(value, 3, min, max)
+    .map(v=> asWords ? wordFor(v) : String(v));
+  return shuffleArray([correctText, ...distractorTexts]);
+}
+
+/* =========================================================
+   LEARN MODE — LESSON GENERATOR
+   Builds each world's step-by-step lesson: teach the pattern,
+   demonstrate how bigger numbers are built, and drop in a few
+   ungraded "Quick Check" quizzes for reinforcement.
+   ========================================================= */
+
+/** A multiple-choice Quick Check step; not part of the scored Practice system. Tracks whether the student has attempted it yet. */
+function learnCheck(prompt, correctText, distractors){
+  return { kind:'check', prompt, correctText, options: shuffleArray([correctText, ...distractors]), answered:false };
+}
+
+/* ---- Random Quick Check generators ----
+   Every lesson draws fresh questions, so no two students (and no retry) see the same one.
+   `maxValue` keeps the question inside what the student has already been taught at that point. */
+const randInt = (min, max)=> min + Math.floor(Math.random() * (max - min + 1));
+const pickOne = (arr)=> arr[Math.floor(Math.random() * arr.length)];
+
+/** "What comes after N?" with digit answers (Tiny Town). */
+function checkWhatComesAfterDigits(min, max){
+  const n = randInt(min, max - 1);
+  return learnCheck(`What comes after ${wordFor(n).toLowerCase()}?`, String(n + 1),
+    nearbyDistinctValues(n + 1, 3, 0, max).map(String));
+}
+/** "What comes after N?" with word answers. */
+function checkWhatComesAfterWords(n, next, min, max){
+  return learnCheck(`What comes after ${wordFor(n).toLowerCase()}?`, wordFor(next),
+    nearbyDistinctValues(next, 3, min, max).map(wordFor));
+}
+/** "Which one says N?" — pick the right word name. `swap` adds the classic reversed-digits distractor when it's in range. */
+function checkWhichOneSays(n, min, max){
+  const pool = new Set(nearbyDistinctValues(n, 5, min, max));
+  const rev = Number(String(n).split('').reverse().join(''));
+  if(rev !== n && rev >= min && rev <= max) pool.add(rev);
+  const d = shuffleArray(Array.from(pool)).slice(0, 3).map(wordFor);
+  return learnCheck(`Which one says ${formatNumber(n)}?`, wordFor(n), d);
+}
+/** "Which number is <words>?" — pick the numeral for a spoken name. */
+function checkWhichNumberIs(n, min, max){
+  return learnCheck(`Which number is ${wordFor(n).toLowerCase()}?`, formatNumber(n),
+    nearbyDistinctValues(n, 3, min, max).map(formatNumber));
+}
+
+/** Returns a fresh random Quick Check appropriate for `slot` in the given world. Same slot ⇒ same type of question, different numbers. */
+function randomLearnCheck(worldId, slot){
+  if(worldId === 'tinyTown'){
+    return slot === 0 ? checkWhatComesAfterDigits(1, 7) : checkWhatComesAfterDigits(8, 15);
+  }
+  if(worldId === 'numberForest'){
+    if(slot === 0){ const n = randInt(20, 98); return learnCheck(`What comes after ${wordFor(n).toLowerCase()}?`, String(n + 1), nearbyDistinctValues(n + 1, 3, 20, 100).map(String)); }
+    const n = randInt(21, 99); if(n % 10 === 0) return checkWhichNumberIs(n, 20, 100);
+    return Math.random() < 0.5 ? checkWhichOneSays(n, 20, 100) : checkWhichNumberIs(n, 20, 100);
+  }
+  if(worldId === 'hundredCastle'){
+    if(slot === 0){
+      const h = randInt(1, 3) * 100; // only hundreds already shown at that point
+      const d = shuffleArray([100,200,300,400,500,600,700,800,900].filter(x=> x !== h + 100)).slice(0, 2).concat([(h + 100) / 10]);
+      return learnCheck(`What comes after ${wordFor(h).toLowerCase()}?`, wordFor(h + 100), d.map(wordFor));
+    }
+    const n = randInt(101, 999);
+    return Math.random() < 0.5 ? checkWhichOneSays(n, 100, 1000) : checkWhichNumberIs(n, 100, 1000);
+  }
+  // thousandsGalaxy
+  if(slot === 0){
+    const round = [1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000];
+    const n = pickOne(round);
+    const d = Array.from(new Set(shuffleArray(round.filter(x=> x !== n && x !== n / 100)).slice(0, 2).concat([n / 100])));
+    return Math.random() < 0.5
+      ? learnCheck(`Which one says ${formatNumber(n)}?`, wordFor(n), d.map(wordFor))
+      : learnCheck(`Which number is ${wordFor(n).toLowerCase()}?`, formatNumber(n), d.map(formatNumber));
+  }
+  const n = randInt(1001, 999999);
+  return Math.random() < 0.5 ? checkWhichOneSays(n, 1000, 999999) : checkWhichNumberIs(n, 1000, 999999);
+}
+
+function buildLessonSteps(worldId){
+  const steps = [];
+  const check = (slot)=>{ const c = randomLearnCheck(worldId, slot); c.worldId = worldId; c.slot = slot; return c; };
+
+  if(worldId === 'tinyTown'){
+    range(0, 20).forEach(n=>{
+      steps.push({ kind:'teach', value:n });
+      if(n === 7) steps.push(check(0));
+      if(n === 14) steps.push(check(1));
+    });
+
+  } else if(worldId === 'numberForest'){
+    [20,30,40,50,60,70,80,90,100].forEach(n=> steps.push({ kind:'pattern', value:n, tag:'Counting by Tens' }));
+    [21,22,34,45,58,67,79,83,96].forEach(n=>{
+      steps.push({ kind:'build2', value:n });
+      if(n === 21) steps.push(check(0));
+      if(n === 45) steps.push(check(1));
+    });
+
+  } else if(worldId === 'hundredCastle'){
+    [100,200,300,400,500,600,700,800,900].forEach(n=>{
+      steps.push({ kind:'pattern', value:n, tag:'Counting by Hundreds' });
+      if(n === 300) steps.push(check(0));
+    });
+    [245,138,372,509,861].forEach(n=>{
+      steps.push({ kind:'build3', value:n });
+      if(n === 245) steps.push(check(1));
+    });
+
+  } else { // thousandsGalaxy
+    [1000,2000,10000,25000,100000,250000,500000,999999].forEach(n=>{
+      steps.push({ kind:'pattern', value:n, tag:'Big Numbers' });
+      if(n === 10000) steps.push(check(0));
+      if(n === 999999) steps.push(check(1));
+    });
+    steps.push({ kind:'placevalue', value:345672 });
+  }
+
+  return steps;
+}
+
+/* =========================================================
+   SAVE MANAGER — handles all localStorage persistence
+   ========================================================= */
+class SaveManager{
+  constructor(){
+    this.storageKey = 'numberKingdomSave_v1';
+    this.data = this.load();
+  }
+
+  defaultData(){
+    const worlds = {};
+    WORLDS.forEach(w=>{
+      const activities = {};
+      ACTIVITIES.forEach(a=>{ activities[a.id] = 0; }); // stars earned, 0-3
+      worlds[w.id] = { unlocked: w.unlockedByDefault, activities };
+    });
+    return {
+      worlds,
+      settings: { music:true, sfx:true, muted:false }
+    };
+  }
+
+  load(){
+    try{
+      const raw = localStorage.getItem(this.storageKey);
+      if(raw){
+        const parsed = JSON.parse(raw);
+        // merge with defaults to survive future world additions
+        const fresh = this.defaultData();
+        Object.keys(fresh.worlds).forEach(id=>{
+          if(parsed.worlds && parsed.worlds[id]){
+            fresh.worlds[id] = Object.assign(fresh.worlds[id], parsed.worlds[id]);
+          }
+        });
+        if(parsed.settings) fresh.settings = Object.assign(fresh.settings, parsed.settings);
+        return fresh;
+      }
+    }catch(e){ console.warn('Save data corrupted, using defaults.', e); }
+    return this.defaultData();
+  }
+
+  save(){
+    try{ localStorage.setItem(this.storageKey, JSON.stringify(this.data)); }
+    catch(e){ console.warn('Could not save progress.', e); }
+  }
+
+  getWorld(id){ return this.data.worlds[id]; }
+
+  /** The real, persisted unlock state for a world. Teacher Mode bypasses this at the Game-controller level rather than here, so student progression data stays untouched. */
+  isWorldUnlocked(id){
+    return this.data.worlds[id].unlocked;
+  }
+
+  getWorldStars(id){
+    const w = this.data.worlds[id];
+    return Object.values(w.activities).reduce((a,b)=>a+b,0);
+  }
+
+  getTotalStars(){
+    return WORLDS.reduce((sum,w)=> sum + this.getWorldStars(w.id), 0);
+  }
+
+  setActivityStars(worldId, activityId, stars){
+    this.data.worlds[worldId].activities[activityId] = Math.max(
+      this.data.worlds[worldId].activities[activityId], stars
+    );
+    this.checkUnlocks();
+    this.save();
+  }
+
+  /** Unlock the next world once the previous one is fully completed. */
+  checkUnlocks(){
+    for(let i=0;i<WORLDS.length-1;i++){
+      const current = WORLDS[i];
+      const next = WORLDS[i+1];
+      if(this.getWorldStars(current.id) >= STARS_PER_WORLD){
+        this.data.worlds[next.id].unlocked = true;
+      }
+    }
+  }
+
+  getSettings(){ return this.data.settings; }
+
+  setSetting(key, value){
+    this.data.settings[key] = value;
+    this.save();
+  }
+
+  /** Wipes only stars/unlocks (used by Teacher Mode's "Reset Student Progress") — sound/fullscreen settings are left alone. */
+  resetProgress(){
+    this.data.worlds = this.defaultData().worlds;
+    this.save();
+  }
+}
+
+/* =========================================================
+   MUSIC ENGINE
+   A short, cheerful, procedurally-generated quiz-show-style loop —
+   no external audio file, just scheduled oscillator notes on the
+   AudioManager's AudioContext. Kept quiet and simple: one melody
+   voice, one soft bass pulse, a master gain for volume/ducking.
+   ========================================================= */
+/** A C-major scale spanning two-plus octaves; melodic motifs below are just indices into this. */
+const MUSIC_SCALE = [261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25,587.33,659.25,698.46,783.99,880.00,987.77,1046.50];
+
+/** Short 8-step melodic phrases (scale-degree indices; `null` = rest) that get chained into one long, varied track. */
+const MUSIC_MOTIFS = {
+  A:  [7,9,11,9,8,10,12,10],
+  A2: [7,8,9,11,12,11,9,8],
+  B:  [11,13,12,13,14,13,12,11],
+  B2: [13,12,11,12,13,11,9,11],
+  C:  [9,null,11,null,12,null,9,null]
+};
+/** Each motif's bass root (Hz) — harmony moves with the section instead of sitting on one note the whole time. */
+const MUSIC_CHORD_ROOT = { A:130.81, A2:130.81, B:196.00, B2:196.00, C:87.31 };
+/** The verse/chorus/bridge arrangement — 18 phrases x 8 steps ≈ 35s at 0.24s/step before it loops. */
+const MUSIC_SEQUENCE = ['A','A2','B','B2','A2','A','C','C','B','B2','A','A2','B','B2','C','A2','A','B'];
+
+/** Builds the full melody/bass step arrays once from the motifs above — this is the whole "song". */
+function buildMusicTrack(){
+  const melody = [];
+  const bass = [];
+  MUSIC_SEQUENCE.forEach(name=>{
+    const root = MUSIC_CHORD_ROOT[name];
+    MUSIC_MOTIFS[name].forEach((degree, i)=>{
+      melody.push(degree === null ? null : MUSIC_SCALE[degree]);
+      bass.push(i % 4 < 2 ? root : root * 1.5); // root/root/fifth/fifth walking pulse
+    });
+  });
+  return { melody, bass };
+}
+
+const MusicEngine = {
+  ctx: null,
+  masterGain: null,
+  timer: null,
+  stepIndex: 0,
+  baseVolume: 0.05,
+  stepSeconds: 0.24,
+  track: buildMusicTrack(),
+
+  init(ctx){
+    if(this.ctx) return;
+    this.ctx = ctx;
+    this.masterGain = ctx.createGain();
+    this.masterGain.gain.value = this.baseVolume;
+    this.masterGain.connect(ctx.destination);
+  },
+
+  playNote(freq, time, duration, type, peak){
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(peak, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    osc.connect(gain).connect(this.masterGain);
+    osc.start(time);
+    osc.stop(time + duration + 0.02);
+  },
+
+  start(){
+    if(!this.ctx || this.timer) return;
+    this.stepIndex = 0;
+    const { melody, bass } = this.track;
+    this.timer = setInterval(()=>{
+      const t = this.ctx.currentTime + 0.02;
+      const i = this.stepIndex % melody.length;
+      if(melody[i] !== null) this.playNote(melody[i], t, this.stepSeconds * 0.85, 'triangle', 0.5);
+      if(i % 4 === 0) this.playNote(bass[i], t, this.stepSeconds * 3.6, 'sine', 0.55);
+      this.stepIndex++;
+    }, this.stepSeconds * 1000);
+  },
+
+  stop(){
+    if(this.timer){ clearInterval(this.timer); this.timer = null; }
+  },
+
+  /** Smoothly ramps the master volume — used for on/off and for the light speech-ducking effect. */
+  setVolume(v){
+    if(!this.masterGain) return;
+    this.masterGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.25);
+  },
+
+  duck(){ this.setVolume(this.baseVolume * 0.3); },
+  unduck(){ this.setVolume(this.baseVolume); }
+};
+
+/* =========================================================
+   AUDIO MANAGER
+   Prepares hooks for click / correct / wrong / victory / music.
+   Uses lightweight procedural placeholder tones (Web Audio API)
+   so the game feels alive offline, with zero external assets.
+   Swap playTone() calls for real audio files later.
+   ========================================================= */
+class AudioManager{
+  constructor(saveManager){
+    this.save = saveManager;
+    this.ctx = null;
+    this.musicPlaying = false;
+  }
+
+  ensureCtx(){
+    if(this.ctx) return;
+    try{
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      MusicEngine.init(this.ctx);
+    }
+    catch(e){ this.ctx = null; }
+  }
+
+  /** Called on the first user gesture (any click, regardless of the SFX setting) — this is the one safe, policy-compliant place to resume the AudioContext and kick off the music loop. */
+  unlockAudio(){
+    this.ensureCtx();
+    if(!this.ctx) return;
+    if(this.ctx.state === 'suspended') this.ctx.resume();
+    if(this.musicPlaying && !MusicEngine.timer) MusicEngine.start();
+  }
+
+  canPlaySfx(){
+    const s = this.save.getSettings();
+    return !s.muted && s.sfx;
+  }
+
+  playTone(freq, duration, type, vol){
+    if(!this.canPlaySfx()) return;
+    this.unlockAudio();
+    if(!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = vol || 0.15;
+    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + duration);
+  }
+
+  playClick(){ this.playTone(680, 0.07, 'triangle', 0.12); }
+  playHover(){ this.playTone(880, 0.04, 'sine', 0.05); }
+  playLockedShake(){ this.playTone(180, 0.15, 'square', 0.10); }
+  playCorrect(){
+    [660,880,1046].forEach((f,i)=> setTimeout(()=> this.playTone(f,0.15,'sine',0.14), i*80));
+  }
+  playWrong(){ this.playTone(150, 0.25, 'sawtooth', 0.12); }
+  playVictory(){
+    [523,659,784,1046].forEach((f,i)=> setTimeout(()=> this.playTone(f,0.2,'triangle',0.15), i*110));
+  }
+
+  /** Recomputes whether music should be audible from current settings, and starts/stops the loop to match. */
+  startMusic(){
+    const s = this.save.getSettings();
+    this.musicPlaying = !s.muted && s.music;
+    this.ensureCtx();
+    if(this.musicPlaying && this.ctx && this.ctx.state === 'running') MusicEngine.start();
+    else MusicEngine.stop();
+  }
+  refreshMusicState(){ this.startMusic(); }
+
+  toggleMute(){
+    const s = this.save.getSettings();
+    this.save.setSetting('muted', !s.muted);
+  }
+}
+
+/* =========================================================
+   SPEECH MANAGER — Learn Mode pronunciation via SpeechSynthesis
+   ========================================================= */
+class SpeechManager{
+  constructor(saveManager){
+    this.save = saveManager;
+    this.voice = null;
+    this.available = !!(window.speechSynthesis);
+    if(this.available){
+      this.pickVoice();
+      window.speechSynthesis.onvoiceschanged = ()=> this.pickVoice();
+    }
+  }
+
+  pickVoice(){
+    const voices = window.speechSynthesis.getVoices() || [];
+    this.voice =
+      voices.find(v=> v.lang === 'en-US') ||
+      voices.find(v=> v.lang && v.lang.toLowerCase().startsWith('en')) ||
+      voices[0] || null;
+  }
+
+  speak(text){
+    if(!this.available) return;
+    if(this.save.getSettings().muted) return;
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    if(this.voice) utter.voice = this.voice;
+    utter.lang = 'en-US';
+    utter.rate = 0.85;
+    utter.pitch = 1.05;
+    utter.onstart = ()=> MusicEngine.duck();
+    utter.onend = ()=> MusicEngine.unduck();
+    utter.onerror = ()=> MusicEngine.unduck();
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+/* =========================================================
+   SCREEN MANAGER — handles show/hide + transition classes
+   ========================================================= */
+class ScreenManager{
+  constructor(){
+    this.screens = Array.from(document.querySelectorAll('.screen'));
+    this.currentId = null;
+  }
+
+  show(id, transitionClass){
+    this.screens.forEach(s=>{
+      if(s.id === id){
+        s.classList.add('active');
+        if(transitionClass){
+          s.classList.remove(transitionClass);
+          void s.offsetWidth; // restart animation
+          s.classList.add(transitionClass);
+        }
+      } else {
+        s.classList.remove('active');
+      }
+    });
+    this.currentId = id;
+  }
+}
+
+/* =========================================================
+   MODAL MANAGER
+   ========================================================= */
+class ModalManager{
+  open(id){ document.getElementById(id).classList.add('active'); }
+  close(id){ document.getElementById(id).classList.remove('active'); }
+}
+
+/* =========================================================
+   DECORATION FACTORY — ambient background elements
+   ========================================================= */
+const Decor = {
+  clear(el){ el.innerHTML = ''; },
+
+  addClouds(el, count){
+    for(let i=0;i<count;i++){
+      const wrap = document.createElement('div');
+      wrap.className = 'cloud-wrap';
+      wrap.style.top = (5 + Math.random()*35) + '%';
+      wrap.style.left = '0px';
+      const duration = 40 + Math.random()*30;
+      wrap.style.animationDuration = duration + 's';
+      wrap.style.animationDelay = (-Math.random()*duration) + 's';
+
+      const c = document.createElement('span');
+      c.className = 'cloud';
+      c.textContent = '☁️';
+      c.style.animationDuration = (5 + Math.random()*3) + 's';
+      c.style.animationDelay = (-Math.random()*4) + 's';
+      c.style.fontSize = (50 + Math.random()*40) + 'px';
+
+      wrap.appendChild(c);
+      el.appendChild(wrap);
+    }
+  },
+
+  addBirds(el, count){
+    for(let i=0;i<count;i++){
+      const wrap = document.createElement('div');
+      wrap.className = 'bird-wrap';
+      wrap.style.top = (6 + Math.random()*22) + '%';
+      wrap.style.left = '0px';
+      const duration = 14 + Math.random()*10;
+      wrap.style.animationDuration = duration + 's';
+      wrap.style.animationDelay = (-Math.random()*duration) + 's';
+
+      const b = document.createElement('span');
+      b.className = 'bird';
+      const palette = [
+        ['#4FA3E3','#2E6FB5','#FFB84D'], // bluebird
+        ['#F26B6B','#C0392B','#FFD166'], // red robin
+        ['#FFC94D','#E09A1E','#FF8C42'], // canary
+        ['#8ED081','#4E9F3D','#FFD166']  // parakeet
+      ][Math.floor(Math.random()*4)];
+      const size = 52 + Math.random()*36;
+      b.style.fontSize = size + 'px';
+      b.style.animationDelay = (-Math.random()*2.4) + 's';
+      b.style.opacity = (0.8 + Math.random()*0.2).toFixed(2);
+      const flap = (0.45 + Math.random()*0.25).toFixed(2) + 's';
+      const flapDelay = (-Math.random()*0.5).toFixed(2) + 's';
+      b.innerHTML = `
+        <svg viewBox="0 0 64 48" aria-hidden="true">
+          <g class="wing back" style="animation-duration:${flap};animation-delay:${flapDelay};">
+            <path d="M30 22 C 22 6, 6 4, 2 10 C 8 16, 18 22, 30 24 Z" fill="${palette[1]}"/>
+          </g>
+          <ellipse cx="34" cy="26" rx="16" ry="10" fill="${palette[0]}"/>
+          <ellipse cx="38" cy="29" rx="9" ry="6" fill="#FFFFFF" opacity=".55"/>
+          <path d="M18 26 L 6 22 L 8 32 Z" fill="${palette[1]}"/>
+          <circle cx="46" cy="20" r="8" fill="${palette[0]}"/>
+          <circle cx="49" cy="19" r="2" fill="#1B1B3A"/>
+          <circle cx="49.7" cy="18.3" r=".7" fill="#FFFFFF"/>
+          <path d="M53 21 L 62 23 L 53 25 Z" fill="${palette[2]}"/>
+          <g class="wing" style="animation-duration:${flap};animation-delay:${flapDelay};">
+            <path d="M34 22 C 30 6, 14 2, 8 8 C 14 14, 24 20, 34 26 Z" fill="${palette[0]}" stroke="${palette[1]}" stroke-width="1.5" stroke-linejoin="round"/>
+          </g>
+        </svg>`;
+
+      wrap.appendChild(b);
+      el.appendChild(wrap);
+    }
+  },
+
+  addSparkles(el, count, area){
+    for(let i=0;i<count;i++){
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      s.textContent = '✨';
+      s.style.top = (area?area.top:0) + Math.random()*(area?area.height:100) + '%';
+      s.style.left = (area?area.left:0) + Math.random()*(area?area.width:100) + '%';
+      s.style.animationDelay = (-Math.random()*2.4) + 's';
+      el.appendChild(s);
+    }
+  },
+
+  addStarsField(el, count){
+    for(let i=0;i<count;i++){
+      const s = document.createElement('div');
+      s.className = 'sparkle';
+      s.textContent = Math.random()>0.5 ? '⭐' : '✨';
+      s.style.top = Math.random()*100 + '%';
+      s.style.left = Math.random()*100 + '%';
+      s.style.fontSize = (10+Math.random()*14)+'px';
+      s.style.animationDelay = (-Math.random()*2.4) + 's';
+      el.appendChild(s);
+    }
+  },
+
+  addFireflies(el, count, area){
+    for(let i=0;i<count;i++){
+      const f = document.createElement('div');
+      f.className = 'firefly';
+      f.style.top = (area?area.top:20) + Math.random()*(area?area.height:60) + '%';
+      f.style.left = (area?area.left:0) + Math.random()*(area?area.width:100) + '%';
+      f.style.fontSize = (10+Math.random()*8)+'px';
+      f.style.animationDelay = (-Math.random()*2.6)+'s, ' + (-Math.random()*7)+'s';
+      el.appendChild(f);
+    }
+  },
+
+  /* World-specific themed decoration sets */
+  buildWorldScene(el, worldId){
+    this.clear(el);
+    if(worldId === 'tinyTown'){
+      this.addClouds(el, 4);
+      el.insertAdjacentHTML('beforeend', `
+        <div class="decor float-el" style="left:6%;bottom:14%;font-size:90px;">🏡</div>
+        <div class="decor float-el" style="left:20%;bottom:10%;font-size:60px;animation-delay:.4s;">🌻</div>
+        <div class="decor spin-el" style="right:10%;bottom:16%;font-size:100px;">🌀</div>
+        <div class="decor float-el" style="right:22%;bottom:12%;font-size:60px;animation-delay:.8s;">🐑</div>
+        <div class="decor sway-el" style="left:40%;bottom:8%;font-size:56px;">🌼</div>
+        <div class="decor float-el" style="right:36%;bottom:20%;font-size:64px;">🐓</div>
+      `);
+    } else if(worldId === 'numberForest'){
+      this.addClouds(el, 2);
+      el.insertAdjacentHTML('beforeend', `
+        <div class="decor sway-el" style="left:8%;bottom:6%;font-size:140px;">🌲</div>
+        <div class="decor sway-el" style="left:24%;bottom:4%;font-size:110px;animation-delay:.5s;">🌲</div>
+        <div class="decor sway-el" style="right:10%;bottom:6%;font-size:150px;animation-delay:.2s;">🌲</div>
+        <div class="decor sway-el" style="right:26%;bottom:4%;font-size:100px;animation-delay:.7s;">🌲</div>
+        <div class="decor float-el" style="left:44%;bottom:18%;font-size:60px;">🦉</div>
+        <div class="decor float-el" style="right:42%;bottom:10%;font-size:50px;animation-delay:.3s;">🍄</div>
+      `);
+      this.addSparkles(el, 10, {top:20,left:20,width:60,height:50});
+      this.addFireflies(el, 8, {top:30,left:10,width:80,height:45});
+    } else if(worldId === 'hundredCastle'){
+      el.insertAdjacentHTML('beforeend', `
+        <div class="decor float-el" style="left:50%;bottom:8%;transform:translateX(-50%);font-size:220px;">🏰</div>
+        <div class="decor" style="left:32%;bottom:36%;font-size:44px;"><span class="flag-el">🚩</span></div>
+        <div class="decor" style="right:30%;bottom:38%;font-size:44px;"><span class="flag-el">🚩</span></div>
+        <div class="decor float-el" style="left:14%;bottom:10%;font-size:70px;">⚔️</div>
+        <div class="decor float-el" style="right:14%;bottom:10%;font-size:70px;animation-delay:.5s;">📖</div>
+      `);
+      this.addStarsField(el, 12);
+    } else if(worldId === 'thousandsGalaxy'){
+      this.addStarsField(el, 40);
+      el.insertAdjacentHTML('beforeend', `
+        <div class="decor spin-el" style="left:12%;top:18%;font-size:90px;">🪐</div>
+        <div class="decor float-el" style="right:14%;top:14%;font-size:70px;">🌍</div>
+        <div class="decor float-el" style="left:44%;bottom:12%;font-size:80px;">🤖</div>
+        <div class="decor float-el" style="right:36%;bottom:20%;font-size:60px;animation-delay:.6s;">🚀</div>
+        <div class="decor float-el" style="left:24%;bottom:8%;font-size:50px;">☄️</div>
+      `);
+    }
+  }
+};
+
+/* =========================================================
+   TOUCH KEYBOARD — custom on-screen numeric/alphabet keyboard.
+   The native/OS keyboard is never used for typed answers.
+   ========================================================= */
+const TouchKeyboard = {
+  LAYOUTS: {
+    numeric: [
+      ['1','2','3'],
+      ['4','5','6'],
+      ['7','8','9'],
+      ['⌫','0','↵']
+    ],
+    alpha: [
+      ['Q','W','E','R','T','Y','U','I','O','P'],
+      ['A','S','D','F','G','H','J','K','L'],
+      ['Z','X','C','V','B','N','M','⌫'],
+      ['-','SPACE','↵']
+    ],
+    password: [
+      ['1','2','3','4','5','6','7','8','9','0'],
+      ['Q','W','E','R','T','Y','U','I','O','P'],
+      ['A','S','D','F','G','H','J','K','L'],
+      ['Z','X','C','V','B','N','M','⌫'],
+      ['↵']
+    ]
+  },
+
+  /** Renders a keyboard into `container`; handlers: {onKey(char), onBackspace(), onSubmit()}. */
+  render(container, mode, handlers){
+    container.innerHTML = '';
+    const rows = this.LAYOUTS[mode] || this.LAYOUTS.numeric;
+    const board = document.createElement('div');
+    board.className = 'keyboard';
+
+    rows.forEach(rowKeys=>{
+      const rowEl = document.createElement('div');
+      rowEl.className = 'keyboard-row';
+      rowKeys.forEach(k=>{
+        const keyEl = document.createElement('button');
+        keyEl.type = 'button';
+        keyEl.className = 'key' +
+          (k === 'SPACE' ? ' key-wide' : '') +
+          (k === '↵' ? ' key-submit' : '') +
+          (k === '⌫' ? ' key-backspace' : '');
+        keyEl.textContent = k === 'SPACE' ? 'SPACE' : k;
+        keyEl.addEventListener('click', ()=>{
+          if(k === '⌫') handlers.onBackspace();
+          else if(k === '↵') handlers.onSubmit();
+          else if(k === 'SPACE') handlers.onKey(' ');
+          else handlers.onKey(k);
+        });
+        rowEl.appendChild(keyEl);
+      });
+      board.appendChild(rowEl);
+    });
+
+    container.appendChild(board);
+  }
+};
+
+/* =========================================================
+   KEYBOARD MANAGER — the ONE place that decides whether the
+   custom touch keyboard is visible, and where.
+   Every screen that can type an answer goes through show()/hide()
+   here instead of touching TouchKeyboard or the DOM directly, so
+   there is a single source of truth and no stale/duplicate
+   keyboard can ever be left on screen.
+   ========================================================= */
+const KeyboardManager = {
+  activeContainer: null,
+  activeMode: null,
+  activeHandlers: null,
+
+  /** Mounts and shows the numeric/alpha/password keyboard in `container`. Hides any other keyboard first. */
+  show(container, mode, handlers){
+    if(this.activeContainer && this.activeContainer !== container) this.hide(this.activeContainer);
+    this.activeContainer = container;
+    this.activeMode = mode;
+    this.activeHandlers = handlers;
+    TouchKeyboard.render(container, mode, handlers);
+  },
+
+  /** Fully removes the keyboard from `container` (buttons gone, no pointer/touch interaction left behind) and stops the physical keyboard from doing anything until show() is called again. */
+  hide(container){
+    if(!container) return;
+    container.innerHTML = '';
+    if(this.activeContainer === container){
+      this.activeContainer = null;
+      this.activeMode = null;
+      this.activeHandlers = null;
+    }
+  },
+
+  /** Routes a physical keydown to the same handlers the on-screen keyboard uses. Returns true if it did anything (so the caller can preventDefault). No active keyboard = no-op, which is what keeps World Map/Learn/Settings/multiple-choice untouched. */
+  handlePhysicalKey(e){
+    if(!this.activeHandlers) return false;
+    const key = e.key;
+    if(key === 'Backspace'){ this.activeHandlers.onBackspace(); return true; }
+    if(key === 'Enter'){ this.activeHandlers.onSubmit(); return true; }
+    if(this.activeMode === 'numeric'){
+      if(/^[0-9]$/.test(key)){ this.activeHandlers.onKey(key); return true; }
+      return false;
+    }
+    if(this.activeMode === 'password'){
+      if(/^[0-9a-zA-Z]$/.test(key)){ this.activeHandlers.onKey(key.toUpperCase()); return true; }
+      return false;
+    }
+    // alpha
+    if(/^[a-zA-Z]$/.test(key)){ this.activeHandlers.onKey(key.toUpperCase()); return true; }
+    if(key === ' '){ this.activeHandlers.onKey(' '); return true; }
+    if(key === '-'){ this.activeHandlers.onKey('-'); return true; }
+    return false;
+  }
+};
+
+/* =========================================================
+   MAIN GAME CONTROLLER
+   ========================================================= */
+class Game{
+  constructor(){
+    this.save = new SaveManager();
+    this.audio = new AudioManager(this.save);
+    this.speech = new SpeechManager(this.save);
+    this.screens = new ScreenManager();
+    this.modals = new ModalManager();
+    this.activeWorldId = null;
+    this.activeGradeId = null;
+    this.teacherMode = false; // session-only — intentionally never saved to localStorage
+    this.teacherPasswordBuffer = '';
+    this.signatureTaps = [];   // timestamps of recent signature taps (5 within 3s opens the teacher gate)
+    this.learnSteps = [];
+    this.learnIndex = 0;
+    this.firstUnansweredCheckIndex = null;
+    this._buildTimer = null;
+    this.flashQueue = [];
+    this.flashCurrentCard = null;
+    this.flashAnswerBuffer = '';
+    this.flashCorrect = 0;
+    this.flashIncorrect = 0;
+    this.flashStreak = 0;
+    this.flashBestStreak = 0;
+    this.flashAwaitingNext = false;
+    this.practiceQueue = [];
+    this.practiceCurrentQuestion = null;
+    this.practiceAnswerBuffer = '';
+    this.practiceBuildPlaced = [];
+    this.practiceBuildTray = [];
+    this.practiceCorrect = 0;
+    this.practiceIncorrect = 0;
+    this.practiceStreak = 0;
+    this.practiceBestStreak = 0;
+    this.practiceAwaitingNext = false;
+
+    this.bindGlobal();
+    this.bindSplash();
+    this.bindTitle();
+    this.bindGradeSelect();
+    this.bindWorldMap();
+    this.bindWorldScreen();
+    this.bindLearnScreen();
+    this.bindFlashcardsScreen();
+    this.bindPracticeScreen();
+    this.bindModals();
+    this.bindTeacherMode();
+
+    this.startSplashSequence();
+  }
+
+  /* ---------- Global click-sound delegation ---------- */
+  bindGlobal(){
+    document.addEventListener('click', (e)=>{
+      this.audio.unlockAudio();
+      const btn = e.target.closest('.btn, .icon-btn, .learn-nav-btn, .key, .qa-choice, .qa-block, .qa-slot.filled, .world-node:not(.locked), .activity-card:not(.locked), .toggle');
+      if(btn) this.audio.playClick();
+    });
+    document.addEventListener('mouseover', (e)=>{
+      const btn = e.target.closest('.btn, .icon-btn, .learn-nav-btn');
+      if(btn) this.audio.playHover();
+    }, true);
+
+    // Physical keyboard: routed through the exact same handlers as the on-screen keyboard (see KeyboardManager),
+    // so it only ever does anything while a Flashcards/Practice typed-answer question is actually showing one.
+    document.addEventListener('keydown', (e)=>{
+      const openModal = document.querySelector('.modal-overlay.active');
+      // The teacher password modal is the one modal whose on-screen keyboard also accepts physical typing.
+      if(openModal && openModal.id !== 'teacher-password-modal') return;
+      if(KeyboardManager.handlePhysicalKey(e)) e.preventDefault();
+    });
+  }
+
+  /* ---------- SPLASH ---------- */
+  startSplashSequence(){
+    const decor = document.getElementById('splash-decor');
+    Decor.addSparkles(decor, 18, {top:0,left:0,width:100,height:100});
+    const bar = document.getElementById('splash-bar');
+    let progress = 0;
+    const interval = setInterval(()=>{
+      progress += 6 + Math.random()*10;
+      if(progress >= 100){
+        progress = 100;
+        clearInterval(interval);
+        setTimeout(()=> this.goToTitle(), 350);
+      }
+      bar.style.width = progress + '%';
+    }, 120);
+  }
+
+  bindSplash(){
+    document.getElementById('splash-screen').addEventListener('click', ()=> this.goToTitle());
+  }
+
+  goToTitle(){
+    this.screens.show('title-screen', 'transition-scale-in');
+    this.audio.startMusic();
+  }
+
+  /* ---------- TITLE ---------- */
+  bindTitle(){
+    const decor = document.getElementById('title-decor');
+    Decor.addClouds(decor, 5);
+    Decor.addBirds(decor, 3);
+    Decor.addSparkles(decor, 10, {top:0,left:0,width:100,height:60});
+
+    document.getElementById('btn-play').addEventListener('click', ()=> this.goToGradeSelect());
+    document.getElementById('btn-settings-title').addEventListener('click', ()=> this.openSettings());
+  }
+
+  /* ---------- GRADE SELECT ---------- */
+  bindGradeSelect(){
+    const decor = document.getElementById('grade-decor');
+    Decor.addClouds(decor, 4);
+    Decor.addBirds(decor, 3);
+    document.getElementById('btn-grade-home').addEventListener('click', ()=> this.goToTitle());
+    document.getElementById('btn-grade-settings').addEventListener('click', ()=> this.openSettings());
+
+    const grid = document.getElementById('grade-grid');
+    GRADES.forEach(g=>{
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'grade-card btn';
+      const names = g.worlds.map(id=> WORLDS.find(w=> w.id === id).name).join(' · ');
+      card.innerHTML = `<span class="grade-icon">${g.icon}</span><div class="grade-name">${g.name}</div><div class="grade-worlds">${names}</div>`;
+      card.addEventListener('click', ()=>{ this.activeGradeId = g.id; this.goToWorldMap(); });
+      grid.appendChild(card);
+    });
+  }
+
+  goToGradeSelect(){
+    this.screens.show('grade-screen', 'transition-slide-in');
+  }
+
+  /** The worlds the current grade sees (all of them if no grade was picked, e.g. via a direct jump). */
+  getGradeWorlds(){
+    const g = GRADES.find(x=> x.id === this.activeGradeId);
+    return g ? g.worlds.map(id=> WORLDS.find(w=> w.id === id)) : WORLDS;
+  }
+
+  /* ---------- WORLD MAP ---------- */
+  bindWorldMap(){
+    document.getElementById('btn-map-home').addEventListener('click', ()=> this.goToGradeSelect());
+    document.getElementById('btn-map-settings').addEventListener('click', ()=> this.openSettings());
+  }
+
+  goToWorldMap(){
+    this.buildWorldMap();
+    this.screens.show('worldmap-screen', 'transition-slide-in');
+  }
+
+  buildWorldMap(){
+    const decor = document.getElementById('map-decor');
+    Decor.clear(decor);
+    Decor.addClouds(decor, 3);
+    Decor.addBirds(decor, 2);
+
+    const gradeWorlds = this.getGradeWorlds();
+
+    // stars counter scoped to this grade's worlds
+    const gradeStars = gradeWorlds.reduce((sum,w)=> sum + this.save.getWorldStars(w.id), 0);
+    document.getElementById('map-total-stars-val').textContent = gradeStars;
+    document.getElementById('map-total-stars-max').textContent = gradeWorlds.length * STARS_PER_WORLD;
+
+    // nodes, laid out in a responsive flex row with connector chevrons between them
+    const nodesWrap = document.getElementById('world-nodes');
+    nodesWrap.innerHTML = '';
+    gradeWorlds.forEach((w, i)=>{
+      if(i > 0){
+        const connector = document.createElement('span');
+        connector.className = 'world-connector';
+        connector.textContent = '➜';
+        nodesWrap.appendChild(connector);
+      }
+
+      const wSave = this.save.getWorld(w.id);
+      const stars = this.save.getWorldStars(w.id);
+      const pct = Math.round((stars/STARS_PER_WORLD)*100);
+      // The first world of a grade is always open (a Grade 3 student starts at Number Forest without finishing Tiny Town).
+      const unlocked = this.teacherMode || i === 0 || this.save.isWorldUnlocked(w.id)
+        || this.save.getWorldStars(gradeWorlds[i-1].id) >= STARS_PER_WORLD;
+
+      const node = document.createElement('div');
+      node.className = 'world-node card-pop-anim' + (unlocked ? '' : ' locked');
+
+      node.innerHTML = `
+        <div class="world-node-badge">
+          ${w.emoji}
+          ${!unlocked ? '<span class="world-node-lock">🔒</span>' : ''}
+        </div>
+        <div class="world-node-label">${w.name}</div>
+        <div class="world-node-range">${w.range}</div>
+        <div class="world-node-progress"><div class="world-node-progress-fill" style="width:${pct}%"></div></div>
+        <div class="world-node-stars">${this.renderStarRow(stars, STARS_PER_WORLD, true)}</div>
+      `;
+
+      node.addEventListener('click', ()=>{
+        if(!unlocked){
+          this.audio.playLockedShake();
+          node.animate(
+            [{transform:'rotate(0deg)'},
+             {transform:'rotate(-6deg)'},
+             {transform:'rotate(6deg)'},
+             {transform:'rotate(0deg)'}],
+            {duration:300}
+          );
+          return;
+        }
+        this.goToWorld(w.id);
+      });
+
+      nodesWrap.appendChild(node);
+    });
+  }
+
+  renderStarRow(earned, max, compact){
+    let html = '<div class="stars-row" style="justify-content:center;">';
+    for(let i=0;i<max;i++){
+      html += `<span class="star-icon ${i<earned?'filled':''}" style="${compact?'font-size:14px;':''}">⭐</span>`;
+    }
+    html += '</div>';
+    return html;
+  }
+
+  /** Shared setup for entering any per-world activity screen: sets the active world, the scene's theme class, its heading, and its sparkle decor. Returns the matched world. */
+  enterWorldScreen(worldId, sceneId, sceneBaseClass, headingId, label, decorId, sparkleCount){
+    this.activeWorldId = worldId;
+    const world = WORLDS.find(w=> w.id === worldId);
+    document.getElementById(sceneId).className = sceneBaseClass + ' ' + world.theme;
+    document.getElementById(headingId).textContent = world.name + ' — ' + label;
+    const decor = document.getElementById(decorId);
+    Decor.clear(decor);
+    Decor.addSparkles(decor, sparkleCount, {top:0,left:0,width:100,height:100});
+    return world;
+  }
+
+  /* ---------- WORLD SCREEN ---------- */
+  bindWorldScreen(){
+    document.getElementById('btn-world-home').addEventListener('click', ()=> this.goToWorldMap());
+    document.getElementById('btn-world-settings').addEventListener('click', ()=> this.openSettings());
+    document.querySelectorAll('.mute-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+      this.audio.toggleMute();
+      this.syncSettingsUI();
+      this.updateMuteIcon();
+      this.audio.refreshMusicState?.();
+      if(this.save.getSettings().muted) window.speechSynthesis?.cancel();
+    }));
+    document.getElementById('btn-world-fullscreen').addEventListener('click', ()=> this.toggleFullscreen());
+  }
+
+  goToWorld(worldId){
+    this.activeWorldId = worldId;
+    const world = WORLDS.find(w=> w.id === worldId);
+    const scene = document.getElementById('world-scene');
+    scene.className = 'world-scene ' + world.theme;
+
+    document.getElementById('world-heading-name').textContent = world.name;
+    document.getElementById('world-heading-range').textContent = world.range;
+
+    Decor.buildWorldScene(document.getElementById('world-decor'), worldId);
+
+    // activity cards
+    const row = document.getElementById('activity-row');
+    row.innerHTML = '';
+    const wSave = this.save.getWorld(worldId);
+    ACTIVITIES.forEach((a, idx)=>{
+      const stars = wSave.activities[a.id];
+      const unlocked = this.teacherMode || idx === 0 || wSave.activities[ACTIVITIES[idx-1].id] >= STARS_PER_ACTIVITY;
+
+      const card = document.createElement('div');
+      card.className = 'activity-card card-pop-anim' + (unlocked ? '' : ' locked');
+      card.innerHTML = `
+        <span class="activity-icon">${a.icon}</span>
+        <div class="activity-name">${a.name}</div>
+        ${this.renderStarRow(stars, STARS_PER_ACTIVITY, false)}
+        ${unlocked ? '' : '<span class="activity-lock">🔒</span>'}
+      `;
+      card.addEventListener('click', ()=>{
+        if(!unlocked){
+          this.audio.playLockedShake();
+          card.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}], {duration:220});
+          return;
+        }
+        if(a.id === 'learn') this.goToLearn(worldId);
+        else if(a.id === 'flashcards') this.goToFlashcards(worldId);
+        else this.goToPractice(worldId);
+      });
+      row.appendChild(card);
+    });
+
+    this.refreshWorldProgress(worldId);
+    this.updateMuteIcon();
+    this.screens.show('world-screen', 'transition-slide-in');
+  }
+
+  refreshWorldProgress(worldId){
+    const stars = this.save.getWorldStars(worldId);
+    const pct = Math.round((stars/STARS_PER_WORLD)*100);
+    document.getElementById('world-progress-label').textContent = `${stars} / ${STARS_PER_WORLD} Stars — ${pct}% Complete`;
+    document.getElementById('world-progress-fill').style.width = pct + '%';
+  }
+
+  updateMuteIcon(){
+    const muted = this.save.getSettings().muted;
+    document.querySelectorAll('.mute-btn').forEach(btn=>{
+      btn.textContent = muted ? '🔇' : '🔊';
+      btn.title = muted ? 'Unmute' : 'Mute';
+    });
+  }
+
+  toggleFullscreen(){
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen?.().catch(()=>{});
+    } else {
+      document.exitFullscreen?.().catch(()=>{});
+    }
+  }
+
+  /* ---------- LEARN MODE ---------- */
+  bindLearnScreen(){
+    document.getElementById('btn-learn-home').addEventListener('click', ()=>{
+      clearTimeout(this._buildTimer);
+      window.speechSynthesis?.cancel();
+      this.goToWorld(this.activeWorldId);
+    });
+    document.getElementById('btn-learn-settings').addEventListener('click', ()=> this.openSettings());
+    document.getElementById('btn-learn-prev').addEventListener('click', ()=> this.learnNav(-1));
+    document.getElementById('btn-learn-next').addEventListener('click', ()=> this.learnNav(1));
+    document.getElementById('btn-learn-speak').addEventListener('click', ()=> this.speakCurrentLearnStep());
+    document.getElementById('btn-learn-finish').addEventListener('click', ()=> this.handleLearnFinish());
+    document.getElementById('btn-learn-goto-check').addEventListener('click', ()=> this.goToFirstUnansweredCheck());
+    document.getElementById('btn-lesson-complete-continue').addEventListener('click', ()=>{
+      this.modals.close('lesson-complete-modal');
+      this.goToWorld(this.activeWorldId);
+    });
+
+    // Swipe support for touch devices / smart boards
+    const wrap = document.getElementById('learn-card-wrap');
+    let touchStartX = 0;
+    wrap.addEventListener('touchstart', (e)=>{ touchStartX = e.changedTouches[0].clientX; }, {passive:true});
+    wrap.addEventListener('touchend', (e)=>{
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      if(Math.abs(dx) > 60) this.learnNav(dx < 0 ? 1 : -1);
+    }, {passive:true});
+  }
+
+  goToLearn(worldId){
+    this.enterWorldScreen(worldId, 'learn-scene', 'learn-scene', 'learn-heading', 'Learn', 'learn-decor', 10);
+
+    this.learnSteps = buildLessonSteps(worldId);
+    this.learnIndex = 0;
+
+    this.renderLearnStep();
+    this.screens.show('learn-screen', 'transition-slide-in');
+  }
+
+  learnNav(direction){
+    const next = this.learnIndex + direction;
+    if(next < 0 || next >= this.learnSteps.length) return;
+    this.learnIndex = next;
+    this.renderLearnStep();
+  }
+
+  /** Speaks whatever the current step's spoken-out-loud phrase is (only ever triggered by an explicit tap). */
+  speakCurrentLearnStep(){
+    const step = this.learnSteps[this.learnIndex];
+    if(!step || step.kind === 'check') return;
+    this.speech.speak(wordFor(step.value));
+  }
+
+  renderLearnStep(){
+    clearTimeout(this._buildTimer);
+    window.speechSynthesis?.cancel();
+    const step = this.learnSteps[this.learnIndex];
+    const isLast = this.learnIndex === this.learnSteps.length - 1;
+
+    // Every sub-block starts hidden; each step kind below reveals only what it needs.
+    ['learn-tag','learn-number','learn-objects','learn-equation','learn-placevalue','learn-word','btn-learn-speak','learn-check']
+      .forEach(id=> document.getElementById(id).style.display = 'none');
+    document.getElementById('learn-word').textContent = '';
+
+    const renderers = {
+      teach: ()=> this.renderLearnTeach(step),
+      pattern: ()=> this.renderLearnPattern(step),
+      build2: ()=> this.renderLearnBuild(step, 2),
+      build3: ()=> this.renderLearnBuild(step, 3),
+      placevalue: ()=> this.renderLearnPlaceValue(step),
+      check: ()=> this.renderLearnCheck(step)
+    };
+    (renderers[step.kind] || renderers.teach)();
+
+    const cardEl = document.getElementById('learn-card');
+    replayAnimation(cardEl, 'card-pop-anim');
+
+    document.getElementById('btn-learn-prev').disabled = (this.learnIndex === 0);
+    document.getElementById('btn-learn-next').style.display = isLast ? 'none' : 'flex';
+    document.getElementById('btn-learn-finish').classList.toggle('visible', isLast);
+    this.updateLearnProgressLabel();
+    document.getElementById('learn-progress-fill').style.width =
+      Math.round(((this.learnIndex + 1) / this.learnSteps.length) * 100) + '%';
+  }
+
+  /** "Card N / M" plus a "Quick Checks: X / Y" line when the lesson has any — lets the student see unfinished checks before reaching Finish. */
+  updateLearnProgressLabel(){
+    const checks = this.learnSteps.filter(s=> s.kind === 'check');
+    let label = `Card ${this.learnIndex + 1} / ${this.learnSteps.length}`;
+    if(checks.length > 0){
+      const answered = checks.filter(c=> c.answered).length;
+      label += ` · Quick Checks: ${answered} / ${checks.length}${answered === checks.length ? ' ✓' : ''}`;
+    }
+    document.getElementById('learn-progress-label').textContent = label;
+  }
+
+  /** Tiny Town: a number, its word, and that many counting objects. */
+  renderLearnTeach(step){
+    const numberEl = document.getElementById('learn-number');
+    const objectsEl = document.getElementById('learn-objects');
+    numberEl.style.display = 'block';
+    objectsEl.style.display = 'flex';
+    numberEl.textContent = step.value;
+    objectsEl.innerHTML = step.value === 0
+      ? '<span class="learn-objects-empty">Zero means none!</span>'
+      : Array.from({length: step.value}, ()=> '<span class="learn-object">🍎</span>').join('');
+    this.popLearnWord(wordFor(step.value));
+    document.getElementById('btn-learn-speak').style.display = 'flex';
+  }
+
+  /** Number Forest / Hundred Castle / Thousands Galaxy: a round pattern number (20, 300, 10,000...). */
+  renderLearnPattern(step){
+    const tagEl = document.getElementById('learn-tag');
+    const numberEl = document.getElementById('learn-number');
+    tagEl.style.display = 'inline-block';
+    numberEl.style.display = 'block';
+    tagEl.textContent = step.tag;
+    numberEl.textContent = formatNumber(step.value);
+    this.popLearnWord(wordFor(step.value));
+    document.getElementById('btn-learn-speak').style.display = 'flex';
+  }
+
+  /** Number Forest (tens+ones) / Hundred Castle (hundreds+tens+ones): animated build-up equation. */
+  renderLearnBuild(step, partCount){
+    const tagEl = document.getElementById('learn-tag');
+    const numberEl = document.getElementById('learn-number');
+    const eqEl = document.getElementById('learn-equation');
+    tagEl.style.display = 'inline-block';
+    numberEl.style.display = 'block';
+    eqEl.style.display = 'flex';
+    document.getElementById('btn-learn-speak').style.display = 'flex';
+
+    tagEl.textContent = 'Building the Number';
+    numberEl.textContent = formatNumber(step.value);
+
+    const n = step.value;
+    const numericParts = partCount === 3
+      ? [Math.floor(n/100)*100, Math.floor((n%100)/10)*10, n%10].filter(p=> p > 0)
+      : [Math.floor(n/10)*10, n%10].filter(p=> p > 0);
+    const wordParts = numericParts.map(wordFor);
+    const chip = (text)=> `<span class="learn-equation-chip">${text}</span>`;
+    const plus = '<span class="learn-equation-plus">+</span>';
+    const joinChips = (parts)=> parts.map(chip).join(plus);
+
+    this.runLearnStages([
+      ()=> eqEl.innerHTML = joinChips(numericParts),
+      ()=> eqEl.innerHTML = joinChips(wordParts),
+      ()=> { eqEl.style.display = 'none'; this.popLearnWord(wordFor(n)); }
+    ]);
+  }
+
+  /** Thousands Galaxy: groups a big number into its thousands part and its last-three-digits part. */
+  renderLearnPlaceValue(step){
+    const tagEl = document.getElementById('learn-tag');
+    const pvEl = document.getElementById('learn-placevalue');
+    tagEl.style.display = 'inline-block';
+    pvEl.style.display = 'flex';
+    document.getElementById('btn-learn-speak').style.display = 'flex';
+    tagEl.textContent = 'Thousands and Ones, Together';
+
+    const n = step.value;
+    this.speech.speak(wordFor(n));
+    const thousandsPart = Math.floor(n / 1000);
+    const onesPart = n % 1000;
+    const numeralHtml = `<span class="grp-thousands">${formatNumber(thousandsPart)}</span> ` +
+      `<span class="grp-ones">${String(onesPart).padStart(3,'0')}</span>`;
+
+    pvEl.innerHTML = `
+      <div class="learn-placevalue-numeral">${numeralHtml}</div>
+      <div class="learn-placevalue-words">
+        <span class="grp-thousands">${wordFor(thousandsPart)} Thousand</span>
+        <span class="grp-ones">${wordFor(onesPart)}</span>
+      </div>
+      <div class="learn-placevalue-legend">
+        <span class="grp-thousands">■ Thousands group</span>
+        <span class="grp-ones">■ Hundreds, Tens &amp; Ones</span>
+      </div>
+    `;
+  }
+
+  /** An ungraded Quick Check quiz card. Attempting it (right or wrong) marks it answered; revisiting shows the resolved state without forcing a retry. */
+  renderLearnCheck(step){
+    const tagEl = document.getElementById('learn-tag');
+    const checkEl = document.getElementById('learn-check');
+    tagEl.style.display = 'inline-block';
+    checkEl.style.display = 'flex';
+    tagEl.textContent = step.isRetry ? 'Quick Check — Try Again!' : 'Quick Check!';
+    document.getElementById('learn-check-prompt').textContent = step.prompt;
+    document.getElementById('learn-check-badge').style.display = step.answered ? 'inline-block' : 'none';
+
+    const choicesEl = document.getElementById('learn-check-choices');
+    choicesEl.innerHTML = '';
+    step.options.forEach(opt=>{
+      const optBtn = document.createElement('button');
+      optBtn.type = 'button';
+      optBtn.className = 'qa-choice';
+      optBtn.textContent = opt;
+      if(step.answered){
+        optBtn.disabled = true;
+        if(opt === step.correctText) optBtn.classList.add('correct');
+        else if(opt === step.selectedText && !step.wasCorrect) optBtn.classList.add('wrong');
+      } else {
+        optBtn.addEventListener('click', ()=> this.handleLearnCheckAnswer(step, opt, optBtn));
+      }
+      choicesEl.appendChild(optBtn);
+    });
+  }
+
+  /** Correct → the check is completed. Wrong → it stays incomplete: this card is removed and the same question
+   *  is re-asked (choices reshuffled) two cards later, so the student sees a couple more numbers first. */
+  handleLearnCheckAnswer(step, opt, optBtn){
+    if(step.answered || step.resolving) return;
+    step.resolving = true;
+    const wasCorrect = (opt === step.correctText);
+
+    document.querySelectorAll('#learn-check-choices .qa-choice').forEach(b=>{
+      b.disabled = true;
+      if(b.textContent === step.correctText) b.classList.add('correct');
+      else if(b === optBtn && !wasCorrect) b.classList.add('wrong');
+    });
+    this.audio[wasCorrect ? 'playCorrect' : 'playWrong']();
+
+    if(wasCorrect){
+      step.answered = true;
+      step.selectedText = opt;
+      step.wasCorrect = true;
+      step.resolving = false;
+      document.getElementById('learn-check-badge').style.display = 'inline-block';
+      this.updateLearnProgressLabel();
+      this._buildTimer = setTimeout(()=> this.learnNav(1), 1400);
+      return;
+    }
+
+    this._buildTimer = setTimeout(()=>{
+      const idx = this.learnSteps.indexOf(step);
+      if(idx === -1) return;
+      this.learnSteps.splice(idx, 1);
+      // A fresh random question of the same type (never the exact same one twice in a row).
+      let retry = randomLearnCheck(step.worldId, step.slot), guard = 0;
+      while(retry.prompt === step.prompt && retry.correctText === step.correctText && guard++ < 10) retry = randomLearnCheck(step.worldId, step.slot);
+      retry.worldId = step.worldId; retry.slot = step.slot; retry.isRetry = true;
+      // Re-insert after the next two content cards (or at the end if the lesson is nearly over).
+      let insertAt = idx, contentSeen = 0;
+      while(insertAt < this.learnSteps.length && contentSeen < 2){
+        if(this.learnSteps[insertAt].kind !== 'check') contentSeen++;
+        insertAt++;
+      }
+      this.learnSteps.splice(insertAt, 0, retry);
+      // Removing the current card means the next card now sits at the same index.
+      this.learnIndex = Math.min(idx, this.learnSteps.length - 1);
+      this.renderLearnStep();
+    }, 1400);
+  }
+
+  /** Reveals a word/phrase with a pop animation (used whenever a step's final word appears). */
+  popLearnWord(text, speak = true){
+    const wordEl = document.getElementById('learn-word');
+    wordEl.style.display = 'block';
+    wordEl.textContent = text;
+    replayAnimation(wordEl, 'word-pop');
+    if(speak) this.speech.speak(text); // the number is read aloud the moment it appears; 🔊 replays it
+  }
+
+  /** Runs a sequence of render functions ~850ms apart — the shared cascade used by every "building a number" animation. */
+  runLearnStages(stageFns){
+    clearTimeout(this._buildTimer);
+    let i = 0;
+    const next = ()=>{
+      stageFns[i]();
+      i++;
+      if(i < stageFns.length) this._buildTimer = setTimeout(next, 850);
+    };
+    next();
+  }
+
+  /** Pressed only on the last card. Finishes the lesson if every Quick Check was attempted, otherwise warns and offers to jump to the first unanswered one. */
+  handleLearnFinish(){
+    const unanswered = this.learnSteps.filter(s=> s.kind === 'check' && !s.answered);
+    if(unanswered.length === 0){
+      this.completeLearnLesson();
+      return;
+    }
+    this.firstUnansweredCheckIndex = this.learnSteps.indexOf(unanswered[0]);
+    const n = unanswered.length;
+    document.getElementById('learn-checks-warning-text').textContent =
+      `You still have ${n} Quick Check${n === 1 ? '' : 's'} to answer.`;
+    this.modals.open('learn-checks-warning-modal');
+  }
+
+  goToFirstUnansweredCheck(){
+    this.modals.close('learn-checks-warning-modal');
+    if(this.firstUnansweredCheckIndex == null) return;
+    this.learnIndex = this.firstUnansweredCheckIndex;
+    this.renderLearnStep();
+  }
+
+  completeLearnLesson(){
+    if(!this.teacherMode) this.save.setActivityStars(this.activeWorldId, 'learn', STARS_PER_ACTIVITY);
+    document.getElementById('complete-stars').innerHTML =
+      this.renderStarRow(STARS_PER_ACTIVITY, STARS_PER_ACTIVITY, false);
+    this.audio.playVictory();
+    this.modals.open('lesson-complete-modal');
+  }
+
+  /* ---------- SHARED QUESTION/ANSWER HELPERS (Flashcards + Practice) ---------- */
+
+  /** Shows the ✅/❌ feedback and (on wrong) the Continue button for screen namespace `ns` ('flash' or 'practice'). */
+  showQaFeedback(ns, correct, correctAnswerText){
+    const feedbackEl = document.getElementById(`${ns}-feedback`);
+    const continueBtn = document.getElementById(`btn-${ns}-continue`);
+
+    if(correct){
+      feedbackEl.textContent = '✅ Correct!';
+      feedbackEl.className = 'qa-feedback correct';
+      continueBtn.classList.remove('visible');
+      this.audio.playCorrect();
+    } else {
+      feedbackEl.innerHTML = `❌ Incorrect<span class="qa-correct-answer">Correct Answer<br><strong>${correctAnswerText}</strong></span>`;
+      feedbackEl.className = 'qa-feedback wrong';
+      continueBtn.classList.add('visible');
+      this.audio.playWrong();
+    }
+  }
+
+  /** Updates the shared Correct/Incorrect/Remaining/Streak/Best/Accuracy chips + progress bar for namespace `ns`. */
+  updateSessionStatsUI(ns, correct, incorrect, streak, best){
+    const total = correct + incorrect;
+    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
+    document.getElementById(`${ns}-stat-correct`).textContent = `Correct: ${correct} / ${SESSION_GOAL_CORRECT}`;
+    document.getElementById(`${ns}-stat-incorrect`).textContent = `Incorrect: ${incorrect}`;
+    document.getElementById(`${ns}-stat-remaining`).textContent = `Remaining: ${Math.max(0, SESSION_GOAL_CORRECT - correct)}`;
+    document.getElementById(`${ns}-stat-streak`).textContent = `🔥 Streak: ${streak}`;
+    document.getElementById(`${ns}-stat-best`).textContent = `🏅 Best: ${best}`;
+    document.getElementById(`${ns}-stat-accuracy`).textContent = `🎯 ${accuracy}%`;
+    document.getElementById(`${ns}-progress-fill`).style.width = Math.round((correct / SESSION_GOAL_CORRECT) * 100) + '%';
+  }
+
+  /* ---------- FLASHCARD MODE (Active Recall) ---------- */
+  bindFlashcardsScreen(){
+    document.getElementById('btn-flash-home').addEventListener('click', ()=>{
+      window.speechSynthesis?.cancel();
+      KeyboardManager.hide(document.getElementById('flash-keyboard-wrap'));
+      this.goToWorld(this.activeWorldId);
+    });
+    document.getElementById('btn-flash-settings').addEventListener('click', ()=> this.openSettings());
+    document.getElementById('btn-flash-continue').addEventListener('click', ()=>{
+      document.getElementById('btn-flash-continue').classList.remove('visible');
+      this.nextFlashQuestion();
+    });
+    document.getElementById('btn-flash-complete-continue').addEventListener('click', ()=>{
+      this.modals.close('flash-complete-modal');
+      this.goToWorld(this.activeWorldId);
+    });
+  }
+
+  goToFlashcards(worldId){
+    this.enterWorldScreen(worldId, 'flash-scene', 'qa-scene', 'flash-heading', 'Flashcards', 'flash-decor', 8);
+
+    this.flashQueue = buildSessionQueue(worldId);
+    this.flashCorrect = 0;
+    this.flashIncorrect = 0;
+    this.flashStreak = 0;
+    this.flashBestStreak = 0;
+    this.flashAwaitingNext = false;
+
+    this.updateSessionStatsUI('flash', 0, 0, 0, 0);
+    this.nextFlashQuestion();
+    this.screens.show('flashcards-screen', 'transition-slide-in');
+  }
+
+  /** Pulls the next card off the queue (reshuffling a fresh pass if it's run dry) and asks a random question type. */
+  nextFlashQuestion(){
+    if(this.flashQueue.length === 0){
+      this.flashQueue = buildSessionQueue(this.activeWorldId);
+    }
+    const value = this.flashQueue.shift();
+    const wordText = wordFor(value);
+    const numText = formatNumber(value);
+    const askForNumber = Math.random() < 0.5; // Type A: show number, type the word. Type B: show word, type the number.
+
+    this.flashCurrentCard = askForNumber
+      ? { value, questionText: numText, target: wordText, keyboardMode:'alpha', label:'Type the word:' }
+      : { value, questionText: wordText, target: String(value), keyboardMode:'numeric', label:'Type the number:' };
+
+    this.flashAnswerBuffer = '';
+    this.flashAwaitingNext = false;
+    this.renderFlashQuestion();
+  }
+
+  renderFlashQuestion(){
+    const card = this.flashCurrentCard;
+    document.getElementById('flash-question-label').textContent = card.label;
+    const flashValueEl = document.getElementById('flash-question-value');
+    flashValueEl.textContent = card.questionText;
+    applyQaLengthClass(flashValueEl, card.questionText);
+    document.getElementById('flash-answer-text').textContent = '';
+    const feedbackEl = document.getElementById('flash-feedback');
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'qa-feedback';
+    document.getElementById('btn-flash-continue').classList.remove('visible');
+
+    const cardEl = document.getElementById('flash-question-card');
+    replayAnimation(cardEl, 'card-pop-anim');
+
+    // Flashcards always requires a typed answer, so the keyboard is shown for every question.
+    KeyboardManager.show(document.getElementById('flash-keyboard-wrap'), card.keyboardMode, {
+      onKey: (ch)=> this.handleFlashKey(ch),
+      onBackspace: ()=> this.handleFlashBackspace(),
+      onSubmit: ()=> this.handleFlashSubmit()
+    });
+  }
+
+  handleFlashKey(ch){
+    if(this.flashAwaitingNext) return;
+    this.flashAnswerBuffer += ch;
+    document.getElementById('flash-answer-text').textContent = this.flashAnswerBuffer;
+  }
+
+  handleFlashBackspace(){
+    if(this.flashAwaitingNext) return;
+    this.flashAnswerBuffer = this.flashAnswerBuffer.slice(0, -1);
+    document.getElementById('flash-answer-text').textContent = this.flashAnswerBuffer;
+  }
+
+  handleFlashSubmit(){
+    if(this.flashAwaitingNext || !this.flashAnswerBuffer.trim()) return;
+    this.flashAwaitingNext = true;
+
+    const card = this.flashCurrentCard;
+    const correct = isAnswerCorrect(this.flashAnswerBuffer, card.target);
+
+    if(correct){
+      this.flashCorrect++;
+      this.flashStreak++;
+      this.flashBestStreak = Math.max(this.flashBestStreak, this.flashStreak);
+    } else {
+      this.flashIncorrect++;
+      this.flashStreak = 0;
+      // Spaced repetition: the missed card goes back into the deck at a random spot.
+      const pos = Math.floor(Math.random() * (this.flashQueue.length + 1));
+      this.flashQueue.splice(pos, 0, card.value);
+    }
+
+    this.showQaFeedback('flash', correct, card.target);
+    this.updateSessionStatsUI('flash', this.flashCorrect, this.flashIncorrect, this.flashStreak, this.flashBestStreak);
+    // The student is no longer entering an answer once it's been submitted — hide the keyboard immediately.
+    KeyboardManager.hide(document.getElementById('flash-keyboard-wrap'));
+
+    // Correct answers auto-advance; wrong answers wait for the student to press Continue.
+    if(correct){
+      if(this.flashCorrect >= SESSION_GOAL_CORRECT) setTimeout(()=> this.completeFlashSession(), 900);
+      else setTimeout(()=> this.nextFlashQuestion(), 1000);
+    }
+  }
+
+  completeFlashSession(){
+    if(!this.teacherMode) this.save.setActivityStars(this.activeWorldId, 'flashcards', STARS_PER_ACTIVITY);
+    document.getElementById('flash-complete-stars').innerHTML =
+      this.renderStarRow(STARS_PER_ACTIVITY, STARS_PER_ACTIVITY, false);
+    this.audio.playVictory();
+    this.modals.open('flash-complete-modal');
+  }
+
+  /* ---------- PRACTICE MODE ---------- */
+  bindPracticeScreen(){
+    document.getElementById('btn-practice-home').addEventListener('click', ()=>{
+      window.speechSynthesis?.cancel();
+      KeyboardManager.hide(document.getElementById('practice-keyboard-wrap'));
+      this.goToWorld(this.activeWorldId);
+    });
+    document.getElementById('btn-practice-settings').addEventListener('click', ()=> this.openSettings());
+    document.getElementById('btn-practice-continue').addEventListener('click', ()=>{
+      document.getElementById('btn-practice-continue').classList.remove('visible');
+      this.nextPracticeQuestion();
+    });
+    document.getElementById('practice-question-value').addEventListener('click', ()=>{
+      if(this.practiceCurrentQuestion && this.practiceCurrentQuestion.type === 'listening'){
+        this.speech.speak(this.practiceCurrentQuestion.speak);
+      }
+    });
+    document.getElementById('btn-practice-complete-continue').addEventListener('click', ()=> this.handlePracticeCompleteContinue());
+    document.getElementById('btn-world-complete-continue').addEventListener('click', ()=>{
+      this.modals.close('world-complete-modal');
+      this.goToWorldMap();
+    });
+  }
+
+  goToPractice(worldId){
+    this.enterWorldScreen(worldId, 'practice-scene', 'qa-scene', 'practice-heading', 'Practice', 'practice-decor', 8);
+
+    this.practiceQueue = buildSessionQueue(worldId);
+    this.practiceCorrect = 0;
+    this.practiceIncorrect = 0;
+    this.practiceStreak = 0;
+    this.practiceBestStreak = 0;
+    this.practiceAwaitingNext = false;
+
+    this.updateSessionStatsUI('practice', 0, 0, 0, 0);
+    this.nextPracticeQuestion();
+    this.screens.show('practice-screen', 'transition-slide-in');
+  }
+
+  /** Builds a fresh randomized question (type + presentation) for the given number value. */
+  buildPracticeQuestion(value){
+    const world = WORLDS.find(w=> w.id === this.activeWorldId);
+    const wordText = wordFor(value);
+    const numText = formatNumber(value);
+    let type = PRACTICE_TYPES[Math.floor(Math.random() * PRACTICE_TYPES.length)];
+    if(type === 'buildNumber' && wordBlocksFor(value).length < 2) type = 'writeWords';
+    const base = { value, type };
+
+    switch(type){
+      case 'writeNumber':
+        return { ...base, label:'Write the number:', displayText: wordText, answerMode:'keyboard-numeric', target:String(value) };
+      case 'multipleChoice': {
+        const asWords = Math.random() < 0.5;
+        return {
+          ...base,
+          label: asWords ? 'Choose the word:' : 'Choose the number:',
+          displayText: asWords ? numText : wordText,
+          answerMode:'choice',
+          target: asWords ? wordText : numText,
+          options: buildMultipleChoiceOptions(value, asWords, world.min, world.max)
+        };
+      }
+      case 'listening':
+        return { ...base, label:'Listen and type the number:', displayText:'🔊', answerMode:'keyboard-numeric', target:String(value), speak: wordText };
+      case 'buildNumber':
+        return { ...base, label:'Build the number:', displayText: numText, answerMode:'build', target: wordText, blocks: wordBlocksFor(value) };
+      case 'writeWords':
+      default:
+        return { ...base, label:'Write the word:', displayText: numText, answerMode:'keyboard-alpha', target: wordText };
+    }
+  }
+
+  /** Pulls the next value off the queue (reshuffling a fresh pass if it's run dry) and generates its question. */
+  nextPracticeQuestion(){
+    if(this.practiceQueue.length === 0){
+      this.practiceQueue = buildSessionQueue(this.activeWorldId);
+    }
+    const value = this.practiceQueue.shift();
+    this.practiceCurrentQuestion = this.buildPracticeQuestion(value);
+    this.practiceAnswerBuffer = '';
+    this.practiceBuildPlaced = [];
+    this.practiceBuildTray = [];
+    this.practiceAwaitingNext = false;
+    this.renderPracticeQuestion();
+  }
+
+  renderPracticeQuestion(){
+    const q = this.practiceCurrentQuestion;
+
+    document.getElementById('practice-question-label').textContent = q.label;
+    const valueEl = document.getElementById('practice-question-value');
+    valueEl.textContent = q.displayText;
+    valueEl.classList.toggle('is-speaker', q.type === 'listening');
+    applyQaLengthClass(valueEl, q.displayText);
+
+    const feedbackEl = document.getElementById('practice-feedback');
+    feedbackEl.textContent = '';
+    feedbackEl.className = 'qa-feedback';
+    document.getElementById('btn-practice-continue').classList.remove('visible');
+    document.getElementById('practice-answer-text').textContent = '';
+
+    const answerBox = document.getElementById('practice-answer-box');
+    const choicesEl = document.getElementById('practice-choices');
+    const slotsEl = document.getElementById('practice-build-slots');
+    const trayEl = document.getElementById('practice-build-tray');
+    const keyboardWrap = document.getElementById('practice-keyboard-wrap');
+
+    answerBox.style.display = 'none';
+    choicesEl.style.display = 'none';
+    slotsEl.style.display = 'none';
+    trayEl.style.display = 'none';
+    KeyboardManager.hide(keyboardWrap); // step 4: hide before rendering the new question's UI
+
+    if(q.answerMode === 'keyboard-numeric' || q.answerMode === 'keyboard-alpha'){
+      answerBox.style.display = 'flex';
+      KeyboardManager.show(keyboardWrap, q.answerMode === 'keyboard-numeric' ? 'numeric' : 'alpha', {
+        onKey: (ch)=> this.handlePracticeKey(ch),
+        onBackspace: ()=> this.handlePracticeBackspace(),
+        onSubmit: ()=> this.handlePracticeSubmit()
+      });
+    } else if(q.answerMode === 'choice'){
+      choicesEl.style.display = 'grid';
+      choicesEl.innerHTML = '';
+      const maxOptLen = Math.max(...q.options.map(o=> o.length));
+      choicesEl.classList.toggle('qa-choices-compact', maxOptLen > 18);
+      choicesEl.classList.toggle('qa-choices-1col', maxOptLen > 32);
+      q.options.forEach(opt=>{
+        const optBtn = document.createElement('button');
+        optBtn.type = 'button';
+        optBtn.className = 'qa-choice';
+        optBtn.textContent = opt;
+        optBtn.addEventListener('click', ()=> this.handlePracticeChoice(opt, optBtn));
+        choicesEl.appendChild(optBtn);
+      });
+    } else if(q.answerMode === 'build'){
+      slotsEl.style.display = 'flex';
+      trayEl.style.display = 'flex';
+      this.practiceBuildTray = shuffleArray(q.blocks);
+      this.renderPracticeBuild();
+    }
+    // Multiple Choice / Build the Number never show a keyboard — KeyboardManager.hide() above already covers it.
+
+    if(q.type === 'listening') this.speech.speak(q.speak);
+
+    const cardEl = document.getElementById('practice-question-card');
+    replayAnimation(cardEl, 'card-pop-anim');
+  }
+
+  handlePracticeKey(ch){
+    if(this.practiceAwaitingNext) return;
+    this.practiceAnswerBuffer += ch;
+    document.getElementById('practice-answer-text').textContent = this.practiceAnswerBuffer;
+  }
+
+  handlePracticeBackspace(){
+    if(this.practiceAwaitingNext) return;
+    this.practiceAnswerBuffer = this.practiceAnswerBuffer.slice(0, -1);
+    document.getElementById('practice-answer-text').textContent = this.practiceAnswerBuffer;
+  }
+
+  handlePracticeSubmit(){
+    if(this.practiceAwaitingNext || !this.practiceAnswerBuffer.trim()) return;
+    this.resolvePracticeAnswer(isAnswerCorrect(this.practiceAnswerBuffer, this.practiceCurrentQuestion.target));
+  }
+
+  handlePracticeChoice(opt, optBtn){
+    if(this.practiceAwaitingNext) return;
+    const target = this.practiceCurrentQuestion.target;
+    const correct = isAnswerCorrect(opt, target);
+    document.querySelectorAll('#practice-choices .qa-choice').forEach(b=>{
+      b.disabled = true;
+      if(isAnswerCorrect(b.textContent, target)) b.classList.add('correct');
+      else if(b === optBtn) b.classList.add('wrong');
+    });
+    this.resolvePracticeAnswer(correct);
+  }
+
+  renderPracticeBuild(){
+    const slotsEl = document.getElementById('practice-build-slots');
+    const trayEl = document.getElementById('practice-build-tray');
+    slotsEl.innerHTML = '';
+    trayEl.innerHTML = '';
+
+    const total = this.practiceCurrentQuestion.blocks.length;
+    const many = total > 5;
+    slotsEl.classList.toggle('qa-many-blocks', many);
+    trayEl.classList.toggle('qa-many-blocks', many);
+
+    for(let i = 0; i < total; i++){
+      const filled = this.practiceBuildPlaced[i];
+      const slot = document.createElement('div');
+      slot.className = 'qa-slot' + (filled ? ' filled' : '');
+      slot.textContent = filled || '';
+      if(filled) slot.addEventListener('click', ()=> this.removePracticeBuildBlock(i));
+      slotsEl.appendChild(slot);
+    }
+
+    this.practiceBuildTray.forEach((word, idx)=>{
+      const block = document.createElement('button');
+      block.type = 'button';
+      block.className = 'qa-block';
+      block.textContent = word;
+      block.addEventListener('click', ()=> this.placePracticeBuildBlock(idx));
+      trayEl.appendChild(block);
+    });
+  }
+
+  placePracticeBuildBlock(trayIdx){
+    if(this.practiceAwaitingNext) return;
+    const [word] = this.practiceBuildTray.splice(trayIdx, 1);
+    this.practiceBuildPlaced.push(word);
+    this.renderPracticeBuild();
+    if(this.practiceBuildPlaced.length === this.practiceCurrentQuestion.blocks.length){
+      const attempt = this.practiceBuildPlaced.join(' ');
+      this.resolvePracticeAnswer(isAnswerCorrect(attempt, this.practiceCurrentQuestion.target));
+    }
+  }
+
+  removePracticeBuildBlock(slotIdx){
+    if(this.practiceAwaitingNext) return;
+    const [word] = this.practiceBuildPlaced.splice(slotIdx, 1);
+    this.practiceBuildTray.push(word);
+    this.renderPracticeBuild();
+  }
+
+  /** Shared resolution path for every Practice question type once an answer has been given. */
+  resolvePracticeAnswer(correct){
+    this.practiceAwaitingNext = true;
+    const q = this.practiceCurrentQuestion;
+
+    if(correct){
+      this.practiceCorrect++;
+      this.practiceStreak++;
+      this.practiceBestStreak = Math.max(this.practiceBestStreak, this.practiceStreak);
+    } else {
+      this.practiceIncorrect++;
+      this.practiceStreak = 0;
+      const pos = Math.floor(Math.random() * (this.practiceQueue.length + 1));
+      this.practiceQueue.splice(pos, 0, q.value);
+    }
+
+    this.showQaFeedback('practice', correct, q.target);
+    this.updateSessionStatsUI('practice', this.practiceCorrect, this.practiceIncorrect, this.practiceStreak, this.practiceBestStreak);
+    KeyboardManager.hide(document.getElementById('practice-keyboard-wrap'));
+
+    if(correct){
+      if(this.practiceCorrect >= SESSION_GOAL_CORRECT) setTimeout(()=> this.completePracticeSession(), 900);
+      else setTimeout(()=> this.nextPracticeQuestion(), 1000);
+    }
+  }
+
+  completePracticeSession(){
+    if(!this.teacherMode) this.save.setActivityStars(this.activeWorldId, 'practice', STARS_PER_ACTIVITY);
+    document.getElementById('practice-complete-stars').innerHTML =
+      this.renderStarRow(STARS_PER_ACTIVITY, STARS_PER_ACTIVITY, false);
+    this.audio.playVictory();
+    this.modals.open('practice-complete-modal');
+  }
+
+  /** After Practice Complete, shows World Complete when every activity in the world is now done (next world already unlocked by SaveManager). */
+  handlePracticeCompleteContinue(){
+    this.modals.close('practice-complete-modal');
+    if(this.save.getWorldStars(this.activeWorldId) >= STARS_PER_WORLD){
+      const gradeWorlds = this.getGradeWorlds();
+      const idx = gradeWorlds.findIndex(w=> w.id === this.activeWorldId);
+      const world = gradeWorlds[idx];
+      const next = gradeWorlds[idx + 1];
+      document.getElementById('world-complete-text').textContent = next
+        ? `You've mastered ${world.name}! ${next.name} is now unlocked.`
+        : `You've mastered ${world.name} — and completed every world in your grade!`;
+      this.modals.open('world-complete-modal');
+    } else {
+      this.goToWorld(this.activeWorldId);
+    }
+  }
+
+  /* ---------- MODALS ---------- */
+  bindModals(){
+    document.getElementById('btn-settings-close').addEventListener('click', ()=> this.modals.close('settings-modal'));
+
+    document.getElementById('toggle-music').addEventListener('click', (e)=>{
+      const s = this.save.getSettings();
+      this.save.setSetting('music', !s.music);
+      this.syncSettingsUI();
+      this.audio.refreshMusicState();
+    });
+    document.getElementById('toggle-sfx').addEventListener('click', ()=>{
+      const s = this.save.getSettings();
+      this.save.setSetting('sfx', !s.sfx);
+      this.syncSettingsUI();
+    });
+    document.getElementById('toggle-mute').addEventListener('click', ()=>{
+      this.audio.toggleMute();
+      this.syncSettingsUI();
+      this.updateMuteIcon();
+      this.audio.refreshMusicState();
+    });
+    document.getElementById('toggle-fullscreen').addEventListener('click', ()=>{
+      this.toggleFullscreen();
+      setTimeout(()=> this.syncSettingsUI(), 200);
+    });
+
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){
+        this.modals.close('settings-modal');
+        KeyboardManager.hide(document.getElementById('teacher-password-keyboard'));
+        this.modals.close('teacher-password-modal');
+        this.modals.close('reset-progress-confirm-modal');
+      }
+    });
+  }
+
+  openSettings(){
+    this.syncSettingsUI();
+    this.modals.open('settings-modal');
+  }
+
+  syncSettingsUI(){
+    const s = this.save.getSettings();
+    document.getElementById('toggle-music').classList.toggle('on', s.music);
+    document.getElementById('toggle-sfx').classList.toggle('on', s.sfx);
+    document.getElementById('toggle-mute').classList.toggle('on', s.muted);
+    document.getElementById('toggle-fullscreen').classList.toggle('on', !!document.fullscreenElement);
+  }
+
+  /* ---------- TEACHER MODE ----------
+     A session-only preview/testing mode: it bypasses world and activity
+     locks (see the `this.teacherMode ||` checks in buildWorldMap/goToWorld)
+     and skips writing real stars (see the `if(!this.teacherMode)` guards in
+     each completeXSession), but never touches localStorage itself — reload
+     the page and it's off, exactly as if it never happened. */
+  bindTeacherMode(){
+    // Settings row only exists while Teacher Mode is on, so this button is always "Exit".
+    document.getElementById('btn-teacher-mode-toggle').addEventListener('click', ()=> this.exitTeacherMode());
+
+    // Hidden entry: tap the signature 5 times within 3 seconds to get the password prompt.
+    document.getElementById('game-signature').addEventListener('click', ()=>{
+      if(this.teacherMode) return;
+      const now = Date.now();
+      this.signatureTaps = this.signatureTaps.filter(t=> now - t < 3000);
+      this.signatureTaps.push(now);
+      if(this.signatureTaps.length >= 5){
+        this.signatureTaps = [];
+        if(!document.querySelector('.modal-overlay.active')) this.openTeacherPasswordModal();
+      }
+    });
+    document.getElementById('btn-teacher-password-cancel').addEventListener('click', ()=>{
+      KeyboardManager.hide(document.getElementById('teacher-password-keyboard'));
+      this.modals.close('teacher-password-modal');
+    });
+    document.getElementById('btn-reset-student-progress').addEventListener('click', ()=>{
+      this.modals.open('reset-progress-confirm-modal');
+    });
+    document.getElementById('btn-reset-progress-cancel').addEventListener('click', ()=>{
+      this.modals.close('reset-progress-confirm-modal');
+    });
+    document.getElementById('btn-reset-progress-confirm').addEventListener('click', ()=> this.resetStudentProgress());
+  }
+
+  openTeacherPasswordModal(){
+    this.teacherPasswordBuffer = '';
+    document.getElementById('teacher-password-text').textContent = '';
+    document.getElementById('teacher-password-error').textContent = '';
+    KeyboardManager.show(document.getElementById('teacher-password-keyboard'), 'password', {
+      onKey: (ch)=>{
+        this.teacherPasswordBuffer += ch;
+        document.getElementById('teacher-password-text').textContent = this.teacherPasswordBuffer;
+      },
+      onBackspace: ()=>{
+        this.teacherPasswordBuffer = this.teacherPasswordBuffer.slice(0, -1);
+        document.getElementById('teacher-password-text').textContent = this.teacherPasswordBuffer;
+      },
+      onSubmit: ()=> this.checkTeacherPassword()
+    });
+    this.modals.open('teacher-password-modal');
+  }
+
+  checkTeacherPassword(){
+    if(this.teacherPasswordBuffer.toLowerCase() === TEACHER_PASSWORD.toLowerCase()){
+      KeyboardManager.hide(document.getElementById('teacher-password-keyboard'));
+      this.modals.close('teacher-password-modal');
+      this.enterTeacherMode();
+    } else {
+      document.getElementById('teacher-password-error').textContent = 'Incorrect password.';
+      this.teacherPasswordBuffer = '';
+      document.getElementById('teacher-password-text').textContent = '';
+    }
+  }
+
+  enterTeacherMode(){
+    this.teacherMode = true;
+    document.getElementById('teacher-mode-badge').style.display = 'flex';
+    document.getElementById('teacher-mode-row').style.display = 'flex';
+    document.getElementById('reset-student-progress-row').style.display = 'flex';
+    this.refreshCurrentScreenLocks();
+  }
+
+  exitTeacherMode(){
+    this.teacherMode = false;
+    document.getElementById('teacher-mode-badge').style.display = 'none';
+    document.getElementById('teacher-mode-row').style.display = 'none';
+    document.getElementById('reset-student-progress-row').style.display = 'none';
+    this.refreshCurrentScreenLocks();
+  }
+
+  /** Re-renders whichever screen is currently visible so lock state immediately reflects a Teacher Mode change. */
+  refreshCurrentScreenLocks(){
+    if(this.screens.currentId === 'worldmap-screen') this.buildWorldMap();
+    if(this.screens.currentId === 'world-screen' && this.activeWorldId) this.goToWorld(this.activeWorldId);
+  }
+
+  resetStudentProgress(){
+    this.save.resetProgress();
+    this.modals.close('reset-progress-confirm-modal');
+    document.getElementById('map-total-stars-val').textContent = this.save.getTotalStars();
+    this.refreshCurrentScreenLocks();
+  }
+}
+
+/* =========================================================
+   BOOTSTRAP
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  window.NumberKingdom = new Game();
+});
+</script>
+</body>
+</html>
