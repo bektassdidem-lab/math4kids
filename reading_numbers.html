@@ -33,7 +33,7 @@
   --font-body:'Segoe UI Rounded','SF Pro Rounded',system-ui,-apple-system,sans-serif;
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none;}
-html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#0E0B22;font-family:var(--font-body);}
+html,body{margin:0;padding:0;width:100%;min-height:100%;overflow-x:hidden;overflow-y:auto;background:#0E0B22;font-family:var(--font-body);}
 
 /* =========================================================
    FULLSCREEN ROOT
@@ -43,9 +43,9 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
    flex/grid layout) rather than shrinking a fixed-size stage.
    ========================================================= */
 #game-root{
-  position:fixed; inset:0;
-  width:100vw; height:100vh; height:100dvh;
-  overflow:hidden;
+  position:relative;
+  width:100%; min-height:100vh; min-height:100dvh;
+  overflow-x:hidden;
   background:#0E0B22;
 }
 
@@ -62,6 +62,14 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
   transition:opacity .5s ease;
 }
 .screen.active{opacity:1; visibility:visible; pointer-events:auto;}
+/* Scroll mode (default): the active screen flows with its content, so on a short phone screen the page can be
+   scrolled down to the keyboard/choices. Inactive screens stay stacked underneath without adding height. */
+.screen.active{position:relative; height:auto; min-height:100vh; min-height:100dvh; overflow:hidden;}
+html:not(.fit-screen) .world-scene, html:not(.fit-screen) .learn-scene, html:not(.fit-screen) .qa-scene{position:relative; min-height:100vh; min-height:100dvh; overflow:visible;}
+.screen.active .decor-layer{position:absolute; inset:0;}
+/* In scroll mode cards take their natural height (the page grows instead of squeezing them). */
+html:not(.fit-screen) .qa-main{flex:1 0 auto;}
+html:not(.fit-screen) .qa-question-card, html:not(.fit-screen) .learn-card{max-height:none; overflow:visible;}
 .screen.transition-slide-in{animation:slideIn .55s cubic-bezier(.2,.8,.2,1);}
 .screen.transition-scale-in{animation:scaleIn .5s cubic-bezier(.2,.8,.2,1);}
 @keyframes slideIn{from{transform:translateX(60px);opacity:0;}to{transform:translateX(0);opacity:1;}}
@@ -158,6 +166,63 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
 .sway-el{animation:swayRotate 4s ease-in-out infinite; transform-origin:bottom center;}
 .spin-el{animation:spin 12s linear infinite;}
 .flag-el{animation:flagWave 2.2s ease-in-out infinite; transform-origin:left center; display:inline-block;}
+
+/* =========================================================
+   FIT MODE — on while the game is fullscreen (or after the ⛶ button on
+   browsers with no fullscreen API, e.g. iPhone Safari). Everything is
+   locked to the viewport and sized down so no scrolling is ever needed.
+   ========================================================= */
+html.fit-screen, html.fit-screen body{overflow:hidden; height:100%;}
+html.fit-screen #game-root{position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; min-height:0; overflow:hidden;}
+html.fit-screen .screen.active{position:absolute; inset:0; height:100%; min-height:0;}
+html.fit-screen .world-scene, html.fit-screen .learn-scene, html.fit-screen .qa-scene{position:absolute; inset:0; min-height:0; overflow:hidden;}
+@media (max-height:560px){
+  html.fit-screen .world-topbar, html.fit-screen .map-topbar{padding:6px 12px; gap:8px;}
+  html.fit-screen .icon-btn{width:40px; height:40px; font-size:20px;}
+  html.fit-screen .world-topbar-title{font-size:clamp(14px,3vh,20px);}
+  html.fit-screen .qa-progress-top{margin-bottom:2px;}
+  html.fit-screen .qa-stats-row{margin-bottom:4px; gap:6px;}
+  html.fit-screen .qa-stat{font-size:11px; padding:3px 9px;}
+  html.fit-screen .qa-main{gap:4px; padding:2px 12px;}
+  html.fit-screen .qa-question-card{padding:6px 16px; gap:3px; border-radius:20px; border-width:3px; width:min(760px,80vw); max-width:94vw; box-shadow:0 6px 0 rgba(0,0,0,.2);}
+  html.fit-screen .qa-question-label{font-size:12px;}
+  html.fit-screen .qa-question-value{font-size:clamp(22px,9vh,46px);}
+  html.fit-screen .qa-answer-box{font-size:clamp(16px,6vh,28px); min-height:1.5em; padding:2px 10px;}
+  html.fit-screen .qa-feedback{min-height:1.2em; font-size:clamp(13px,4vh,20px);}
+  html.fit-screen .qa-continue-btn{min-height:34px; font-size:14px; padding:4px 14px;}
+  html.fit-screen .qa-choices{gap:6px;}
+  html.fit-screen .qa-choice{min-height:32px; font-size:clamp(13px,4vh,18px); padding:3px 8px; border-width:2px; border-radius:12px; box-shadow:0 3px 0 rgba(0,0,0,.15);}
+  html.fit-screen .qa-keyboard-wrap{padding:2px 8px 6px;}
+  html.fit-screen .keyboard{gap:3px;}
+  html.fit-screen .keyboard-row{gap:3px;}
+  html.fit-screen .key{min-width:clamp(26px,3.6vw,40px); min-height:clamp(24px,6vh,34px); font-size:clamp(11px,3.5vh,16px); border-radius:8px; box-shadow:0 2px 0 rgba(0,0,0,.15);}
+  html.fit-screen .qa-build-slots, html.fit-screen .qa-build-tray{gap:5px;}
+  html.fit-screen .qa-slot, html.fit-screen .qa-block{min-height:30px; font-size:13px; padding:2px 8px;}
+  html.fit-screen .learn-card{padding:8px 16px; gap:4px; border-radius:20px; border-width:3px; max-height:none; overflow:visible; width:min(760px,80vw);}
+  html.fit-screen .learn-number{font-size:clamp(28px,12vh,64px);}
+  html.fit-screen .learn-word{font-size:clamp(16px,6vh,30px);}
+  html.fit-screen .learn-object{font-size:clamp(12px,3.5vh,18px);}
+  html.fit-screen .learn-tag{font-size:10px; padding:2px 8px;}
+  html.fit-screen .learn-check-prompt{font-size:clamp(14px,5vh,22px);}
+  html.fit-screen .learn-speak{width:34px; height:34px; font-size:16px;}
+  html.fit-screen .learn-nav-btn{width:40px; height:40px;}
+  html.fit-screen .world-progress-wrap{padding-bottom:6px;}
+  html.fit-screen .world-progress-label{font-size:11px; margin-bottom:2px;}
+  html.fit-screen .world-progress-bar{height:10px;}
+  html.fit-screen .world-heading h2{font-size:clamp(16px,5vh,26px);}
+  html.fit-screen .activity-card{padding:8px 10px;}
+  html.fit-screen .activity-icon{font-size:clamp(24px,7vh,40px); margin-bottom:2px;}
+  html.fit-screen .activity-name{font-size:clamp(13px,4vh,18px);}
+  html.fit-screen .world-node-badge{font-size:clamp(30px,10vh,56px);}
+  html.fit-screen .world-node-label{font-size:clamp(12px,4vh,18px);}
+  html.fit-screen .grade-card{padding:6px 8px;}
+  html.fit-screen .grade-card .grade-icon{font-size:clamp(20px,7vh,36px); margin-bottom:0;}
+  html.fit-screen .grade-card .grade-name{font-size:clamp(14px,5vh,22px);}
+  html.fit-screen .grade-title{font-size:clamp(18px,6vh,32px); margin-bottom:6px;}
+  html.fit-screen .title-menu{margin-top:10px; gap:8px;}
+  html.fit-screen .title-menu .btn{min-height:36px; font-size:16px;}
+  html.fit-screen .title-name{font-size:clamp(28px,12vh,70px);}
+}
 
 /* =========================================================
    ORIENTATION LOCK
@@ -671,7 +736,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
           <button class="icon-btn" id="btn-world-home" title="World Map">🏠</button>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-world-mute" title="Mute">🔊</button>
-            <button class="icon-btn" id="btn-world-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn fullscreen-btn" id="btn-world-fullscreen" title="Fullscreen">⛶</button>
             <button class="icon-btn" id="btn-world-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -696,6 +761,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
           <div class="world-topbar-title" id="learn-heading">World — Learn</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-learn-mute" title="Mute">🔊</button>
+            <button class="icon-btn fullscreen-btn" id="btn-learn-fullscreen" title="Fullscreen">⛶</button>
             <button class="icon-btn" id="btn-learn-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -762,6 +828,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
           <div class="world-topbar-title" id="flash-heading">World — Flashcards</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-flash-mute" title="Mute">🔊</button>
+            <button class="icon-btn fullscreen-btn" id="btn-flash-fullscreen" title="Fullscreen">⛶</button>
             <button class="icon-btn" id="btn-flash-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -815,6 +882,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#
           <div class="world-topbar-title" id="practice-heading">World — Practice</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-practice-mute" title="Mute">🔊</button>
+            <button class="icon-btn fullscreen-btn" id="btn-practice-fullscreen" title="Fullscreen">⛶</button>
             <button class="icon-btn" id="btn-practice-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -2197,7 +2265,9 @@ class Game{
       this.audio.refreshMusicState?.();
       if(this.save.getSettings().muted) window.speechSynthesis?.cancel();
     }));
-    document.getElementById('btn-world-fullscreen').addEventListener('click', ()=> this.toggleFullscreen());
+    document.querySelectorAll('.fullscreen-btn').forEach(btn=> btn.addEventListener('click', ()=> this.toggleFullscreen()));
+    // Keep the fit-mode class in sync with real fullscreen (Esc, system gesture, etc.).
+    ['fullscreenchange','webkitfullscreenchange'].forEach(ev=> document.addEventListener(ev, ()=> this.syncFitMode()));
   }
 
   goToWorld(worldId){
@@ -2260,13 +2330,41 @@ class Game{
     });
   }
 
+  /** True while the game is fullscreen (standard or webkit-prefixed API). */
+  isFullscreen(){
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
   toggleFullscreen(){
-    if(!document.fullscreenElement){
-      document.documentElement.requestFullscreen?.().catch(()=>{});
+    const root = document.documentElement;
+    const request = root.requestFullscreen || root.webkitRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if(request && exit){
+      if(!this.isFullscreen()){
+        try{ const r = request.call(root); r?.catch?.(()=>{ this.setFitMode(true); }); }
+        catch(e){ this.setFitMode(true); }
+      } else {
+        try{ const r = exit.call(document); r?.catch?.(()=>{ this.setFitMode(false); }); }
+        catch(e){ this.setFitMode(false); }
+      }
     } else {
-      document.exitFullscreen?.().catch(()=>{});
+      // No fullscreen API (iPhone Safari): just toggle the fit-to-screen layout.
+      this.setFitMode(!document.documentElement.classList.contains('fit-screen'));
     }
   }
+
+  /** Fit mode = everything locked to the viewport, no scrolling; off = normal scrollable page. */
+  setFitMode(on){
+    document.documentElement.classList.toggle('fit-screen', on);
+    document.querySelectorAll('.fullscreen-btn').forEach(btn=>{
+      btn.textContent = on ? '🗗' : '⛶';
+      btn.title = on ? 'Exit fullscreen' : 'Fullscreen';
+    });
+    if(on) window.scrollTo(0, 0);
+    this.syncSettingsUI();
+  }
+
+  syncFitMode(){ this.setFitMode(this.isFullscreen()); }
 
   /* ---------- LEARN MODE ---------- */
   bindLearnScreen(){
@@ -3052,7 +3150,7 @@ class Game{
     document.getElementById('toggle-music').classList.toggle('on', s.music);
     document.getElementById('toggle-sfx').classList.toggle('on', s.sfx);
     document.getElementById('toggle-mute').classList.toggle('on', s.muted);
-    document.getElementById('toggle-fullscreen').classList.toggle('on', !!document.fullscreenElement);
+    document.getElementById('toggle-fullscreen').classList.toggle('on', document.documentElement.classList.contains('fit-screen'));
   }
 
   /* ---------- TEACHER MODE ----------
