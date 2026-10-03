@@ -115,6 +115,7 @@ html:not(.fit-screen) .qa-question-card, html:not(.fit-screen) .learn-card{max-h
 .btn-ghost:active{transform:translateY(2px) scale(.97);}
 
 .icon-btn{
+  color:var(--navy);
   width:clamp(60px,5.5vw,84px); height:clamp(60px,5.5vw,84px); border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   font-size:clamp(26px,2.4vw,38px); border:none; cursor:pointer; flex-shrink:0;
@@ -180,6 +181,7 @@ html:not(.fit-screen) .qa-question-card, html:not(.fit-screen) .learn-card{max-h
    ========================================================= */
 html.fit-screen, html.fit-screen body{overflow:hidden; height:100%;}
 html.fit-screen #game-root{position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; min-height:0; overflow:hidden;}
+#game-root:fullscreen, #game-root:-webkit-full-screen{width:100%; height:100%;}
 html.fit-screen .screen.active{position:absolute; inset:0; height:100%; min-height:0;}
 html.fit-screen .world-scene, html.fit-screen .learn-scene, html.fit-screen .qa-scene{position:absolute; inset:0; min-height:0; overflow:hidden;}
 @media (max-height:560px){
@@ -264,6 +266,7 @@ html.fit-screen .world-scene, html.fit-screen .learn-scene, html.fit-screen .qa-
    ========================================================= */
 #title-screen{background:linear-gradient(180deg,var(--sky-top) 0%, var(--sky-bottom) 65%, var(--meadow) 100%);}
 .title-hero{display:flex; flex-direction:column; align-items:center; z-index:2; padding:20px; text-align:center;}
+.fullscreen-btn svg{display:block; width:.95em; height:.95em;}
 .title-fullscreen-btn{position:absolute; top:clamp(12px,2.4vh,28px); right:clamp(14px,2.4vw,36px); z-index:5;}
 html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
 .title-crown{font-size:clamp(34px,4.5vw,60px); margin-bottom:6px; animation:floatY 3s ease-in-out infinite;}
@@ -694,7 +697,7 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
     <section id="title-screen" class="screen">
       <div class="decor-layer" id="title-decor"></div>
       <div class="title-hill"></div>
-      <button class="icon-btn fullscreen-btn title-fullscreen-btn" id="btn-title-fullscreen" title="Fullscreen">⛶</button>
+      <button class="icon-btn fullscreen-btn title-fullscreen-btn" id="btn-title-fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
       <div class="title-hero">
         <div class="title-crown float-el">👑</div>
         <div class="title-name">NUMBER <span>KINGDOM</span></div>
@@ -745,7 +748,7 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
           <button class="icon-btn" id="btn-world-home" title="World Map">🏠</button>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-world-mute" title="Mute">🔊</button>
-            <button class="icon-btn fullscreen-btn" id="btn-world-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn fullscreen-btn" id="btn-world-fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
             <button class="icon-btn" id="btn-world-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -770,7 +773,7 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
           <div class="world-topbar-title" id="learn-heading">World — Learn</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-learn-mute" title="Mute">🔊</button>
-            <button class="icon-btn fullscreen-btn" id="btn-learn-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn fullscreen-btn" id="btn-learn-fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
             <button class="icon-btn" id="btn-learn-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -837,7 +840,7 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
           <div class="world-topbar-title" id="flash-heading">World — Flashcards</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-flash-mute" title="Mute">🔊</button>
-            <button class="icon-btn fullscreen-btn" id="btn-flash-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn fullscreen-btn" id="btn-flash-fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
             <button class="icon-btn" id="btn-flash-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -891,7 +894,7 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
           <div class="world-topbar-title" id="practice-heading">World — Practice</div>
           <div class="world-topbar-right">
             <button class="icon-btn mute-btn" id="btn-practice-mute" title="Mute">🔊</button>
-            <button class="icon-btn fullscreen-btn" id="btn-practice-fullscreen" title="Fullscreen">⛶</button>
+            <button class="icon-btn fullscreen-btn" id="btn-practice-fullscreen" title="Fullscreen"><svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
             <button class="icon-btn" id="btn-practice-settings" title="Settings">⚙</button>
           </div>
         </div>
@@ -1017,10 +1020,9 @@ html.fit-screen .title-fullscreen-btn{top:8px; right:10px;}
       </div>
     </div>
 
-</div>
-
 <div id="teacher-mode-badge">👩‍🏫 TEACHER MODE</div>
 <div id="game-signature">Didem İnce</div>
+</div>
 
 <script>
 'use strict';
@@ -1072,6 +1074,12 @@ const SESSION_GOAL_CORRECT = 20; // correct answers needed to complete a Flashca
  * accident" gate for a local single-file game, not real security.
  */
 const TEACHER_PASSWORD = "didem26";
+
+/** Inline SVG arrows for the fullscreen buttons — emoji glyphs for this differ wildly between Android and iOS. */
+const FULLSCREEN_ICONS = {
+  enter: '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>',
+  exit:  '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></svg>'
+};
 
 /* =========================================================
    NUMBER → WORDS ENGINE
@@ -2348,7 +2356,7 @@ class Game{
   }
 
   toggleFullscreen(){
-    const root = document.documentElement;
+    const root = document.getElementById('game-root');
     const request = root.requestFullscreen || root.webkitRequestFullscreen;
     const exit = document.exitFullscreen || document.webkitExitFullscreen;
     if(request && exit){
@@ -2369,7 +2377,7 @@ class Game{
   setFitMode(on){
     document.documentElement.classList.toggle('fit-screen', on);
     document.querySelectorAll('.fullscreen-btn').forEach(btn=>{
-      btn.textContent = on ? '🗗' : '⛶';
+      btn.innerHTML = on ? FULLSCREEN_ICONS.exit : FULLSCREEN_ICONS.enter;
       btn.title = on ? 'Exit fullscreen' : 'Fullscreen';
     });
     if(on) window.scrollTo(0, 0);
