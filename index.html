@@ -237,8 +237,19 @@
     .page{padding:14px 20px 24px}
     .layout{grid-template-columns:1fr;gap:24px}
     .grades-panel{padding-top:8px}
-    .grade-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-    .grade-card{height:112px}
+    .section-title{margin-bottom:22px}
+    .grade-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 22px}
+    .grade-card{height:130px}
+    /* Sizes in px (not vh) so text and animals stay proportional on tablets and landscape phones */
+    .grade-small{font-size:13px}
+    .grade-number{font-size:40px}
+    .grade-play{font-size:12px;padding:5px 11px}
+    .animal,
+    .grade-card:nth-child(1) .animal,
+    .grade-card:nth-child(2) .animal,
+    .grade-card:nth-child(3) .animal,
+    .grade-card:nth-child(4) .animal{height:138px;right:-4px;bottom:-6px;max-width:52%}
+    .signature{position:static;text-align:right;margin-top:16px}
     .games-panel{min-height:460px}
     .empty-state{inset:120px 20px 20px}
   }
