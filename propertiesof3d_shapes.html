@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3D Shape Explorer</title>
+<meta name="description" content="Grade 2 — recognise and explore 3D shapes. Built for classroom smartboards.">
+<style>
+/* ============================================================
+   3D SHAPE EXPLORER — Sinan İnce 2026
+   Single file. No libraries, no external assets, works offline.
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#F1B06E;
+  font-family:"Nunito","Avenir Next Rounded","Segoe UI Rounded","Segoe UI","Trebuchet MS",system-ui,-apple-system,sans-serif;
+  user-select:none;-webkit-user-select:none;touch-action:none;overscroll-behavior:none}
+:root{
+  --ink:#2B1D4A; --ink2:#6D5E8E; --ink3:#A99BC4;
+  --paper:#FFFFFF; --mat:#FFF4E6;
+  --sky:#3B82F6;  --skyS:#2358B8;
+  --mint:#14B8C4; --mintS:#0C8791;
+  --coral:#FF5D73;--coralS:#C93A51;
+  --grape:#8B5CF6;--grapeS:#5F35BF;
+  --sun:#FFC23D;  --sunS:#D4940F;
+  --ok:#1FB46A;   --okS:#128249;
+  --no:#FF6B5B;   --noS:#C8453A;
+}
+
+#wrap{position:fixed;inset:0;overflow:hidden;background:#F1B06E}
+#stage{width:1920px;height:1080px;position:absolute;left:50%;top:50%;overflow:hidden;
+  transform-origin:center center;background-color:#FFD9A8;
+  /* isometric dot grid — quiet nod to 3D paper */
+  background-image:
+    radial-gradient(circle,rgba(43,29,74,.10) 2.4px,transparent 2.9px),
+    radial-gradient(circle,rgba(43,29,74,.10) 2.4px,transparent 2.9px);
+  background-size:64px 37px;background-position:0 0,32px 18.5px}
+
+/* ---------- scenes ---------- */
+.scene{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.scene.on{opacity:1;pointer-events:auto}
+.hide{display:none!important}
+
+/* ---------- buttons (clay blocks) ---------- */
+.btn{--bg:var(--sky);--sh:var(--skyS);font-family:inherit;font-weight:900;font-size:36px;color:#fff;
+  background:var(--bg);border:none;border-radius:28px;padding:18px 36px;cursor:pointer;
+  box-shadow:0 10px 0 var(--sh);transition:transform .08s,box-shadow .08s,opacity .2s;
+  min-height:100px;min-width:100px;display:inline-flex;align-items:center;justify-content:center;gap:14px;
+  line-height:1.1;text-align:center}
+.btn:active{transform:translateY(7px);box-shadow:0 3px 0 var(--sh)}
+.btn:focus-visible,.tile:focus-visible,.mcard:focus-visible,.roundBtn:focus-visible,.exCard:focus-visible{outline:6px solid var(--ink);outline-offset:4px}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.b-sky{--bg:var(--sky);--sh:var(--skyS)} .b-mint{--bg:var(--mint);--sh:var(--mintS)}
+.b-coral{--bg:var(--coral);--sh:var(--coralS)} .b-grape{--bg:var(--grape);--sh:var(--grapeS)}
+.b-sun{--bg:var(--sun);--sh:var(--sunS);color:var(--ink)} .b-ok{--bg:var(--ok);--sh:var(--okS)}
+.b-no{--bg:var(--no);--sh:var(--noS)} .b-white{--bg:#fff;--sh:#E3C9A6;color:var(--ink)}
+.btn.active{--bg:var(--ink);--sh:#150c29}
+
+.roundBtn{width:100px;height:100px;border-radius:50%;border:none;background:#fff;font-size:48px;cursor:pointer;
+  box-shadow:0 9px 0 #E3C29A;display:grid;place-items:center;flex:none;transition:transform .08s,box-shadow .08s}
+.roundBtn:active{transform:translateY(6px);box-shadow:0 3px 0 #E3C29A}
+.say{width:84px;height:84px;font-size:40px;background:var(--mat);box-shadow:0 7px 0 #EBD3B2}
+
+.panel{background:#fff;border-radius:40px;box-shadow:0 14px 0 rgba(170,96,34,.20)}
+.pill{background:#fff;border-radius:999px;padding:14px 34px;font-size:38px;font-weight:900;color:var(--ink);
+  box-shadow:0 8px 0 rgba(170,96,34,.20);white-space:nowrap}
+
+/* ---------- top bar ---------- */
+.bar{position:absolute;top:0;left:0;right:0;height:130px;display:flex;align-items:center;gap:26px;padding:0 34px;z-index:20}
+.bar h1{font-size:54px;font-weight:900;color:var(--ink);letter-spacing:-1px}
+.grow{flex:1}
+.dots{display:flex;gap:14px;background:#fff;border-radius:999px;padding:20px 28px;box-shadow:0 8px 0 rgba(170,96,34,.20)}
+.dot{width:34px;height:34px;border-radius:50%;background:#F1E4D2;transition:transform .2s,background .2s}
+.dot.now{background:#fff;box-shadow:inset 0 0 0 6px var(--ink);transform:scale(1.12)}
+.dot.ok{background:var(--ok)} .dot.try{background:var(--sun)}
+
+/* ---------- menu ---------- */
+#logo{position:absolute;top:50px;left:0;right:0;text-align:center;perspective:900px}
+#logo h1{font-size:150px;font-weight:900;letter-spacing:-5px;line-height:1;color:#fff;
+  transform:rotateX(14deg);
+  text-shadow:0 3px 0 #EDE2FF,0 6px 0 #D9C8FB,0 9px 0 #C1A8F3,0 12px 0 #A585E6,0 15px 0 #8B67D6,
+    0 18px 0 #6F4DBD,0 21px 0 #5739A0,0 24px 0 #402A7C,0 36px 30px rgba(43,29,74,.35);
+  animation:logoFloat 6s ease-in-out infinite}
+@keyframes logoFloat{0%,100%{transform:rotateX(14deg) translateY(0)}50%{transform:rotateX(14deg) translateY(-10px)}}
+#logo .tag{display:inline-block;margin-top:38px;font-size:34px;font-weight:900;color:var(--ink);
+  background:#fff;border-radius:999px;padding:12px 40px;box-shadow:0 7px 0 rgba(170,96,34,.22)}
+#menuCards{position:absolute;top:330px;left:0;right:0;display:flex;justify-content:center;gap:26px}
+.mcard{width:346px;height:470px;border:none;background:#fff;border-radius:44px;cursor:pointer;position:relative;
+  box-shadow:0 16px 0 rgba(170,96,34,.22);display:flex;flex-direction:column;align-items:center;
+  padding:22px 20px 20px;font-family:inherit;transition:transform .12s,box-shadow .12s;overflow:hidden}
+.mcard:active{transform:translateY(12px);box-shadow:0 4px 0 rgba(170,96,34,.22)}
+.mIcon{width:306px;height:250px;border-radius:32px;background:var(--tint);display:grid;place-items:center;position:relative;overflow:hidden}
+.mIcon svg{width:250px;height:230px;overflow:visible}
+.mIcon .emo{position:absolute;left:18px;top:14px;font-size:54px}
+.mcard h2{font-size:45px;font-weight:900;color:var(--ink);margin-top:22px;letter-spacing:-1.5px;white-space:nowrap}
+.mcard p{font-size:25px;font-weight:800;color:var(--ink2);margin-top:6px;line-height:1.25}
+#shelf{position:absolute;left:0;right:0;top:872px;height:190px;display:flex;justify-content:center;gap:10px}
+#shelf::before{content:"";position:absolute;left:170px;right:170px;top:110px;height:12px;border-radius:10px;background:rgba(170,96,34,.22)}
+.shelfItem{width:210px;height:170px;border:none;background:none;cursor:pointer;position:relative;font-family:inherit;display:flex;flex-direction:column;align-items:center}
+.shelfItem svg{width:150px;height:120px;overflow:visible}
+.shelfItem b{font-size:21px;font-weight:900;color:var(--ink);white-space:nowrap;margin-top:14px;opacity:.85}
+#soundBtn{position:absolute;right:34px;top:34px}
+.sign{position:absolute;right:30px;bottom:12px;font-size:19px;font-weight:800;color:rgba(43,29,74,.42);z-index:30}
+
+/* ---------- explore ---------- */
+#exList{position:absolute;left:34px;top:140px;width:390px;display:flex;flex-direction:column;gap:12px}
+.exCard{height:116px;border-radius:28px;border:none;background:#fff;cursor:pointer;display:flex;align-items:center;gap:14px;
+  padding:0 20px 0 10px;font-family:inherit;box-shadow:0 7px 0 rgba(170,96,34,.18);transition:transform .1s,box-shadow .1s,background .2s;position:relative}
+.exCard:active{transform:translateY(5px);box-shadow:0 2px 0 rgba(170,96,34,.18)}
+.exCard svg{width:110px;height:100px;flex:none;overflow:visible}
+.exCard b{font-size:30px;font-weight:900;color:var(--ink);text-align:left;line-height:1.08}
+.exCard.sel{background:var(--ink);box-shadow:0 7px 0 #150c29}
+.exCard.sel b{color:#fff}
+.exCard .seen{position:absolute;right:16px;top:12px;font-size:26px;opacity:0;transition:opacity .3s}
+.exCard.done .seen{opacity:1}
+#exStage{position:absolute;left:454px;top:140px;width:870px;height:720px;overflow:hidden;touch-action:none;cursor:grab}
+#exStage:active{cursor:grabbing}
+#exStage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#exEmpty{position:absolute;inset:0;display:grid;place-items:center;font-size:66px;font-weight:900;color:var(--ink3);text-align:center}
+#exEmpty span{display:inline-block;animation:nudge 1.4s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(-22px)}}
+.chip{position:absolute;background:var(--mat);color:var(--ink2);font-weight:900;font-size:28px;border-radius:999px;padding:12px 26px}
+#exHint{left:50%;bottom:28px;transform:translateX(-50%);transition:opacity .5s}
+#exTools{position:absolute;left:454px;top:892px;width:870px;display:flex;gap:22px}
+#exTools .btn{flex:1;padding:18px 10px;font-size:36px;min-height:132px}
+#exInfo{position:absolute;left:1356px;top:140px;width:530px;height:884px;padding:40px 38px;display:flex;flex-direction:column}
+#exInfo .ph{margin:auto;text-align:center;font-size:40px;font-weight:900;color:var(--ink3);line-height:1.3}
+.nameRow{display:flex;align-items:center;gap:18px}
+.nameRow h2{font-size:66px;font-weight:900;color:var(--ink);line-height:1;letter-spacing:-1.5px;flex:1}
+.desc{font-size:44px;font-weight:800;color:var(--ink2);margin-top:26px;line-height:1.2}
+.rollTag{display:flex;align-items:center;gap:16px;margin-top:30px;border-radius:26px;padding:20px 24px;font-size:38px;font-weight:900}
+.rollTag.yes{background:#DDF7E9;color:#0E7A43}
+.rollTag.no{background:#FFE6E2;color:#B8362B}
+.rollTag i{font-style:normal;font-size:46px}
+.real{margin-top:auto;background:var(--mat);border-radius:32px;padding:18px;text-align:center}
+.real .art{font-size:170px;line-height:1.1;height:210px;display:grid;place-items:center}
+.real .art svg{width:260px;height:200px;overflow:visible}
+.real b{display:block;font-size:44px;font-weight:900;color:var(--ink)}
+
+/* ---------- banner (roll result) ---------- */
+.banner{position:absolute;left:50%;top:26px;transform:translate(-50%,-30px) scale(.9);opacity:0;pointer-events:none;
+  background:#fff;border-radius:32px;padding:18px 44px;text-align:center;transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .25s;
+  box-shadow:0 10px 0 rgba(43,29,74,.12);white-space:nowrap;z-index:5}
+.banner.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.banner b{display:block;font-size:62px;font-weight:900;letter-spacing:-1px;line-height:1.05}
+.banner span{display:block;font-size:36px;font-weight:800;color:var(--ink2);margin-top:6px}
+.banner.yes b{color:var(--ok)} .banner.no b{color:var(--no)}
+.backMini{position:absolute;left:22px;top:22px;z-index:6;width:88px;height:88px;font-size:40px}
+
+/* ---------- prompt ---------- */
+.prompt{position:absolute;left:0;right:0;top:130px;display:flex;justify-content:center;align-items:center;gap:24px}
+.prompt h2{font-size:78px;font-weight:900;color:var(--ink);letter-spacing:-2px;line-height:1}
+.fb{position:absolute;left:0;right:0;bottom:24px;text-align:center;font-size:56px;font-weight:900;height:70px;pointer-events:none}
+.fb.good{color:var(--ok)} .fb.bad{color:var(--no)}
+
+/* ---------- match pick ---------- */
+#mpCards{position:absolute;top:290px;left:0;right:0;display:flex;justify-content:center;gap:60px}
+#mpCards .mcard{width:620px;height:560px}
+#mpCards .mcard h2{font-size:52px}
+#mpCards .mcard p{font-size:27px}
+#mpCards .mIcon{width:570px;height:330px;display:flex;gap:26px;align-items:center;justify-content:center}
+#mpCards .mIcon svg{width:220px;height:210px}
+.arrow{font-size:80px;font-weight:900;color:var(--ink)}
+.bigWord{font-size:74px;font-weight:900;color:var(--ink);background:#fff;border-radius:26px;padding:10px 28px;box-shadow:0 7px 0 rgba(43,29,74,.12)}
+
+/* ---------- match: shape -> name ---------- */
+#maStage{position:absolute;left:50%;top:240px;width:1080px;height:470px;transform:translateX(-50%);overflow:hidden}
+#maStage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#maAnswers{position:absolute;left:50%;top:748px;width:1420px;transform:translateX(-50%);display:grid;grid-template-columns:1fr 1fr;gap:26px 34px}
+#maAnswers .btn{min-height:128px;font-size:54px;border-radius:32px;--bg:#fff;--sh:#E3C29A;color:var(--ink)}
+.btn.right{--bg:var(--ok)!important;--sh:var(--okS)!important;color:#fff!important;animation:hop .55s}
+.btn.wrong{opacity:.35;animation:shake .45s}
+
+/* ---------- match: name -> shape ---------- */
+#mbWord{position:absolute;left:50%;top:238px;transform:translateX(-50%);display:flex;align-items:center;gap:22px;
+  background:#fff;border-radius:40px;padding:14px 18px 14px 56px;box-shadow:0 12px 0 rgba(170,96,34,.20)}
+#mbWord b{font-size:96px;font-weight:900;color:var(--ink);letter-spacing:-2px;white-space:nowrap}
+#mbTiles{position:absolute;left:0;right:0;top:470px;display:flex;justify-content:center;gap:40px}
+.tile{width:420px;height:470px;border:none;background:#fff;border-radius:40px;cursor:pointer;position:relative;
+  box-shadow:0 12px 0 rgba(170,96,34,.20);font-family:inherit;transition:transform .1s,box-shadow .1s,opacity .25s}
+.tile:active{transform:translateY(8px);box-shadow:0 4px 0 rgba(170,96,34,.20)}
+.tile svg{position:absolute;inset:20px;width:calc(100% - 40px);height:calc(100% - 40px);overflow:visible;pointer-events:none}
+.tile.right{box-shadow:0 0 0 12px var(--ok),0 12px 0 12px var(--okS);animation:hop .55s}
+.tile.wrong{opacity:.35;animation:shake .45s}
+.tile.fade{opacity:.35}
+
+/* ---------- find it ---------- */
+#fiPrompt{gap:20px}
+#fiMat{position:absolute;left:34px;right:34px;top:250px;bottom:30px;background:var(--mat);border-radius:44px;
+  box-shadow:inset 0 0 0 6px rgba(170,96,34,.10),0 14px 0 rgba(170,96,34,.18);overflow:hidden}
+.fItem{position:absolute;width:390px;height:350px;border:none;background:none;cursor:pointer;border-radius:50%;font-family:inherit;transition:opacity .25s}
+.fItem svg{width:100%;height:100%;overflow:visible;pointer-events:none}
+.fItem.right{animation:hop .6s}
+.fItem.right::after{content:"";position:absolute;inset:6px;border-radius:50%;border:12px solid var(--ok);animation:ringIn .35s ease-out}
+.fItem.wrong{animation:shake .45s;opacity:.3}
+.fItem.fade{opacity:.3}
+@keyframes ringIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+#fiHintBubble{position:absolute;left:50%;top:268px;transform:translateX(-50%);z-index:10;background:#fff;border-radius:30px;
+  padding:14px 36px;font-size:46px;font-weight:900;color:var(--ink);box-shadow:0 10px 0 rgba(43,29,74,.12);white-space:nowrap}
+#fiHintBubble em{font-style:normal;font-size:64px;vertical-align:middle;margin-left:10px}
+
+/* ---------- roll or not ---------- */
+#roStage{position:absolute;left:50%;top:238px;width:1500px;height:590px;transform:translateX(-50%);overflow:hidden}
+#roStage svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#roName{position:absolute;left:24px;bottom:24px;display:flex;align-items:center;gap:14px;z-index:4}
+#roName b{font-size:44px;font-weight:900;color:var(--ink);background:var(--mat);border-radius:22px;padding:12px 26px}
+#roBtns{position:absolute;left:0;right:0;top:862px;display:flex;justify-content:center;gap:50px}
+#roBtns .btn{width:700px;min-height:170px;font-size:52px;border-radius:40px}
+#roNext{position:absolute;left:50%;top:872px;transform:translateX(-50%);width:560px;min-height:160px;font-size:60px;border-radius:40px}
+
+/* ---------- celebration overlay ---------- */
+#party{position:absolute;inset:0;background:rgba(43,29,74,.55);display:none;align-items:center;justify-content:center;z-index:100}
+#party.on{display:flex}
+#partyCard{width:1260px;background:#fff;border-radius:56px;padding:40px 50px 50px;text-align:center;position:relative;z-index:2;
+  box-shadow:0 18px 0 rgba(0,0,0,.18);animation:popIn .5s cubic-bezier(.3,1.5,.5,1)}
+#partyShapes{display:flex;justify-content:center;gap:6px;height:170px}
+#partyShapes svg{width:160px;height:160px;overflow:visible}
+#partyCard h2{font-size:120px;font-weight:900;color:var(--ink);letter-spacing:-4px;line-height:1;margin-top:10px}
+#partyCard p{font-size:52px;font-weight:900;color:var(--ink2);margin-top:14px}
+#partyBtns{display:flex;justify-content:center;gap:26px;margin-top:40px;flex-wrap:wrap}
+#partyBtns .btn{min-width:300px;min-height:120px;font-size:42px}
+#confetti{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.cf{position:absolute;top:-40px;width:26px;height:26px;border-radius:6px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(1180px) rotate(720deg)}}
+@keyframes popIn{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+@keyframes hop{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-26px) scale(1.06)}65%{transform:translateY(0) scale(.98)}100%{transform:translateY(0) scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-16px)}40%{transform:translateX(14px)}60%{transform:translateX(-10px)}80%{transform:translateX(6px)}}
+.hop{animation:hop .6s}
+
+/* ---------- build it ---------- */
+#bdPalette{position:absolute;left:34px;top:140px;width:330px;display:flex;flex-direction:column;gap:12px}
+.bdCard{height:118px}
+.bdCard svg{width:96px;height:92px}
+.bdCard b{font-size:27px}
+.bdCard.added{animation:hop .45s}
+#bdWork{position:absolute;left:390px;top:140px;width:1076px;height:765px;border-radius:40px;overflow:hidden;background:#FFFBF5;
+  box-shadow:inset 0 0 0 6px rgba(170,96,34,.10),0 14px 0 rgba(170,96,34,.18);transition:width .35s ease;touch-action:none}
+#bdSvg{position:absolute;left:0;top:0;width:1496px;height:765px;overflow:hidden}
+#bdEmpty{position:absolute;inset:0;display:grid;place-items:center;font-size:58px;font-weight:900;color:var(--ink3);pointer-events:none;text-align:center}
+#bdEmpty span{display:inline-block;animation:nudge 1.4s ease-in-out infinite}
+.bdRing{fill:rgba(59,130,246,.10);stroke:#3B82F6;stroke-width:6;stroke-dasharray:14 12;stroke-linecap:round;animation:ringSpin 1.2s linear infinite}
+@keyframes ringSpin{to{stroke-dashoffset:-52}}
+#bdTools{position:absolute;left:390px;top:932px;width:1076px;display:flex;gap:20px;transition:width .35s ease}
+#bdTools .btn{flex:1;min-height:110px;font-size:36px;padding:10px 12px;white-space:nowrap}
+#bdPanel{position:absolute;right:34px;top:140px;width:400px;height:902px;padding:26px 26px 22px;display:flex;flex-direction:column;
+  transition:transform .35s ease,opacity .3s,visibility .35s}
+.bdHead{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.bdHead h2{flex:1;font-size:44px;font-weight:900;color:var(--ink);letter-spacing:-1px;line-height:1}
+#bdHide,#bdShow{font-size:66px;font-weight:900;color:var(--ink);line-height:1;font-family:inherit}
+#bdList{flex:1;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.bdRow{display:flex;align-items:center;gap:10px;background:var(--mat);border-radius:24px;padding:4px 18px 4px 6px;animation:popIn .3s}
+.bdRow svg{width:84px;height:80px;flex:none;overflow:visible}
+.bdRow span{flex:1;font-size:27px;font-weight:900;color:var(--ink);line-height:1.05}
+.bdRow b{font-size:42px;font-weight:900;color:var(--ink);white-space:nowrap}
+#bdList .ph{margin:auto;text-align:center;font-size:34px;font-weight:900;color:var(--ink3);line-height:1.3}
+#bdTotal{font-size:34px;font-weight:900;color:var(--ink2);text-align:center;padding-top:12px}
+#bdShow{position:absolute;right:54px;top:160px;z-index:6;display:none;width:100px;height:100px}
+#sBuild.wide #bdWork,#sBuild.wide #bdTools{width:1496px}
+#sBuild.wide #bdPanel{transform:translateX(460px);opacity:0;visibility:hidden}
+#sBuild.wide #bdShow{display:grid}
+#bdConfirm{position:absolute;inset:0;background:rgba(43,29,74,.55);display:none;align-items:center;justify-content:center;z-index:50}
+#bdConfirm.on{display:flex}
+#bdConfirm .card{background:#fff;border-radius:48px;padding:50px 70px;text-align:center;box-shadow:0 16px 0 rgba(0,0,0,.18);animation:popIn .35s cubic-bezier(.3,1.5,.5,1)}
+#bdConfirm h2{font-size:76px;font-weight:900;color:var(--ink);letter-spacing:-2px}
+#bdConfirm .row{display:flex;gap:30px;justify-content:center;margin-top:40px}
+#bdConfirm .btn{min-width:300px;min-height:120px;font-size:46px}
+
+@media (prefers-reduced-motion:reduce){
+  #logo h1,#exEmpty span{animation:none}
+  .cf{display:none}
+}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+
+  <!-- ================= MENU ================= -->
+  <section id="sMenu" class="scene">
+    <div id="logo"><h1>Shape Explorer</h1><div class="tag">Look. Touch. Roll!</div></div>
+    <div id="menuCards">
+      <button class="mcard" data-go="explore" style="--tint:#DDF6F7"><div class="mIcon"><span class="emo">🔍</span><svg id="miExplore"></svg></div><h2>Explore</h2><p>Look closely at the shapes!</p></button>
+      <button class="mcard" data-go="matchPick" style="--tint:#E3EDFF"><div class="mIcon"><span class="emo">🎯</span><svg id="miMatch"></svg></div><h2>Match</h2><p>Match the shape and the name!</p></button>
+      <button class="mcard" data-go="roll" style="--tint:#FFE4E8"><div class="mIcon"><span class="emo">🎲</span><svg id="miRoll"></svg></div><h2>Roll or Not?</h2><p>Can it roll?</p></button>
+      <button class="mcard" data-go="find" style="--tint:#EEE6FF"><div class="mIcon"><span class="emo">🧩</span><svg id="miFind"></svg></div><h2>Find It</h2><p>Find the shape I say!</p></button>
+      <button class="mcard" data-go="build" style="--tint:#FFF0D4"><div class="mIcon"><span class="emo">🏗️</span><svg id="miBuild"></svg></div><h2>Build It</h2><p>Build your own 3D model!</p></button>
+    </div>
+    <div id="shelf"></div>
+    <button id="soundBtn" class="roundBtn" aria-label="Sound on or off">🔊</button>
+  </section>
+
+  <!-- ================= EXPLORE ================= -->
+  <section id="sExplore" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Explore</h1><div class="grow"></div><div class="pill" id="exProg">⭐ 0 / 7</div></header>
+    <div id="exList"></div>
+    <div id="exStage" class="panel">
+      <svg id="exSvg"></svg>
+      <svg id="exRoll" class="hide"></svg>
+      <div id="exEmpty"><div><span>👈</span> Tap a shape!</div></div>
+      <div id="exHint" class="chip hide">👆 Drag to turn it</div>
+      <button id="exBack" class="roundBtn backMini say hide" aria-label="Back to the shape">↩</button>
+      <div id="exBanner" class="banner"></div>
+    </div>
+    <div id="exTools">
+      <button class="btn b-sky" id="exSpin" disabled>🔄 Spin</button>
+      <button class="btn b-grape" id="exZoom" disabled>🔍 Look closer</button>
+      <button class="btn b-coral" id="exRollBtn" disabled>🎳 Roll it!</button>
+    </div>
+    <div id="exInfo" class="panel"><div class="ph">Let's explore!</div></div>
+  </section>
+
+  <!-- ================= MATCH PICK ================= -->
+  <section id="sMatchPick" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Match</h1></header>
+    <div id="mpCards">
+      <button class="mcard" id="mpA" style="--tint:#E3EDFF"><div class="mIcon"><svg id="mpSvgA"></svg><span class="arrow">➜</span><span class="bigWord">Aa</span></div><h2>What is its name?</h2><p>See the shape. Tap the name.</p></button>
+      <button class="mcard" id="mpB" style="--tint:#FFF0D4"><div class="mIcon"><span class="bigWord">Aa</span><span class="arrow">➜</span><svg id="mpSvgB"></svg></div><h2>Which picture?</h2><p>Read the name. Tap the shape.</p></button>
+    </div>
+  </section>
+
+  <!-- ================= MATCH A: shape -> name ================= -->
+  <section id="sMatchA" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Match</h1><div class="grow"></div><div class="dots" id="maDots"></div></header>
+    <div class="prompt"><h2>What shape is it?</h2></div>
+    <div id="maStage" class="panel"><svg id="maSvg"></svg><div class="fb" id="maFb"></div></div>
+    <div id="maAnswers"></div>
+  </section>
+
+  <!-- ================= MATCH B: name -> shape ================= -->
+  <section id="sMatchB" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Match</h1><div class="grow"></div><div class="dots" id="mbDots"></div></header>
+    <div class="prompt"><h2>Which one is it?</h2></div>
+    <div id="mbWord"><b id="mbName">Cube</b><button class="roundBtn say" id="mbSay" aria-label="Say it">🔊</button></div>
+    <div id="mbTiles"></div>
+    <div class="fb" id="mbFb" style="bottom:auto;top:385px"></div>
+  </section>
+
+  <!-- ================= ROLL OR NOT ================= -->
+  <section id="sRoll" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Roll or Not?</h1><div class="grow"></div><div class="dots" id="roDots"></div></header>
+    <div class="prompt"><h2>Can it roll?</h2></div>
+    <div id="roStage" class="panel">
+      <svg id="roSvg"></svg><svg id="roRoll" class="hide"></svg>
+      <div id="roName"><b id="roNameTxt">Cube</b><button class="roundBtn say" id="roSay" aria-label="Say it">🔊</button></div>
+      <div id="roBanner" class="banner"></div>
+    </div>
+    <div id="roBtns">
+      <button class="btn b-ok" id="roYes">🟢 YES, IT ROLLS</button>
+      <button class="btn b-no" id="roNo">🔴 NO, IT DOES NOT ROLL</button>
+    </div>
+    <button class="btn b-sky hide" id="roNext">Next ▶</button>
+  </section>
+
+  <!-- ================= FIND IT ================= -->
+  <section id="sFind" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Find It</h1><div class="grow"></div><div class="dots" id="fiDots"></div></header>
+    <div class="prompt" id="fiPrompt"><h2 id="fiText">Find the cube!</h2><button class="roundBtn say" id="fiSay" aria-label="Say it">🔊</button><button class="roundBtn say" id="fiHint" aria-label="Hint">💡</button></div>
+    <div id="fiMat"></div>
+    <div id="fiHintBubble" class="hide"></div>
+  </section>
+
+  <!-- ================= BUILD IT ================= -->
+  <section id="sBuild" class="scene">
+    <header class="bar"><button class="roundBtn home" aria-label="Menu">🏠</button><h1>Build It</h1></header>
+    <div id="bdPalette"></div>
+    <div id="bdWork">
+      <svg id="bdSvg" viewBox="0 0 1496 765">
+        <defs><pattern id="bdGrid" width="64" height="37" patternUnits="userSpaceOnUse">
+          <path d="M0,18.5 L32,0 L64,18.5 L32,37 Z" fill="none" stroke="rgba(43,29,74,.07)" stroke-width="2"/></pattern></defs>
+        <rect x="0" y="0" width="1496" height="765" fill="url(#bdGrid)"/>
+        <g id="bdPieces"></g>
+      </svg>
+      <div id="bdEmpty"><div><span>👈</span> Tap a shape!</div></div>
+    </div>
+    <div id="bdTools">
+      <button class="btn b-sky" id="bdTurn" disabled>🔄 Turn</button>
+      <button class="btn b-grape" id="bdTip" disabled>⤵️ Tip over</button>
+      <button class="btn b-no" id="bdDel" disabled>🗑️ Delete</button>
+      <button class="btn b-white" id="bdClear">🧹 Clear All</button>
+    </div>
+    <div id="bdPanel" class="panel">
+      <div class="bdHead"><h2>Shapes Used</h2><button class="roundBtn say" id="bdHide" aria-label="Hide shapes used">−</button></div>
+      <div id="bdList"></div>
+      <div id="bdTotal"></div>
+    </div>
+    <button class="roundBtn" id="bdShow" aria-label="Show shapes used">+</button>
+    <div id="bdConfirm"><div class="card"><h2>Clear your model?</h2>
+      <div class="row"><button class="btn b-white" id="bdCancel">Cancel</button><button class="btn b-no" id="bdYes">🧹 Clear</button></div></div></div>
+  </section>
+
+  <!-- ================= CELEBRATION ================= -->
+  <div id="party"><div id="confetti"></div>
+    <div id="partyCard"><div id="partyShapes"></div><h2 id="partyTitle">Great job!</h2><p id="partyText"></p><div id="partyBtns"></div></div>
+  </div>
+
+  <div class="sign">Didem İnce 2026</div>
+</div></div>
+
+<!-- shared gradients for spheres -->
+<svg width="0" height="0" style="position:absolute;left:0;top:0" aria-hidden="true"><defs id="gradDefs"></defs></svg>
+
+<script>
+"use strict";
+/* ============================================================
+   PART 1 — SHAPE DEFINITIONS (edit here to change a shape)
+   No face / edge / vertex data on purpose.
+   ============================================================ */
+const SHAPES = {
+  cube: {
+    name:"cube", displayName:"Cube", color:"#3B82F6",
+    rollBehavior:"none", rollShort:"Does not roll", rollText:"It does not roll.",
+    simpleDescription:"Looks like a box.",
+    realLifeExample:{emoji:"🎲", word:"Dice"},
+    viewScale:1.00, build:()=>box(1.1,1.1,1.1)
+  },
+  sphere: {
+    name:"sphere", displayName:"Sphere", color:"#FF5D73",
+    rollBehavior:"many", rollShort:"Rolls!", rollText:"It rolls in many directions.",
+    simpleDescription:"Like a ball.",
+    realLifeExample:{emoji:"⚽", word:"Ball"},
+    viewScale:0.80, build:()=>({sphere:true, r:0.72, v:[[0.72,0,0]], f:[]})
+  },
+  rectangularPrism: {
+    name:"rectangular prism", displayName:"Rectangular Prism", color:"#FF9F1C",
+    rollBehavior:"none", rollShort:"Does not roll", rollText:"It does not roll.",
+    simpleDescription:"Like a book.",
+    realLifeExample:{emoji:"📘", word:"Book"},
+    viewScale:1.04, build:()=>box(1.9,0.72,1.05)
+  },
+  squarePrism: {
+    name:"square prism", displayName:"Square Prism", color:"#22C55E",
+    rollBehavior:"none", rollShort:"Does not roll", rollText:"It does not roll.",
+    simpleDescription:"Like a tall block.",
+    realLifeExample:{emoji:"🏢", word:"Building"},
+    viewScale:1.02, build:()=>box(0.8,1.75,0.8)
+  },
+  triangularPrism: {
+    name:"triangular prism", displayName:"Triangular Prism", color:"#8B5CF6",
+    rollBehavior:"none", rollShort:"Does not roll", rollText:"It does not roll.",
+    simpleDescription:"Like a tent.",
+    realLifeExample:{emoji:"⛺", word:"Tent"},
+    viewScale:1.02, build:()=>triPrism(1.25,1.0,1.75)
+  },
+  cylinder: {
+    name:"cylinder", displayName:"Cylinder", color:"#14B8C4",
+    rollBehavior:"side", rollShort:"Rolls on its side", rollText:"It rolls on its side.",
+    simpleDescription:"Like a can.",
+    realLifeExample:{emoji:"🥫", word:"Can"},
+    viewScale:0.96, build:()=>cylinder(0.6,1.35,40)
+  },
+  squarePyramid: {
+    name:"square pyramid", displayName:"Square Pyramid", color:"#FFC23D",
+    rollBehavior:"none", rollShort:"Does not roll", rollText:"It does not roll.",
+    simpleDescription:"Like a pyramid.",
+    realLifeExample:{art:"pyramid", word:"Pyramid"},
+    viewScale:1.00, build:()=>pyramid(1.35,1.38)
+  }
+};
+const ORDER = ["cube","sphere","rectangularPrism","squarePrism","triangularPrism","cylinder","squarePyramid"];
+const rolls = k => SHAPES[k].rollBehavior !== "none";
+/* Quiz colours are random so that colour never gives the answer away */
+const PALETTE = ["#3B82F6","#FF5D73","#FF9F1C","#22C55E","#8B5CF6","#14B8C4","#FFC23D","#EC4899"];
+
+/* ============================================================
+   PART 2 — SMALL HELPERS, SAVE, SOUND, VOICE
+   ============================================================ */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, at){ const e=document.createElementNS(NS,tag); if(at) for(const k in at) e.setAttribute(k, at[k]); return e; }
+function clear(e){ while(e.firstChild) e.removeChild(e.firstChild); }
+function shuffle(a){ const b=a.slice(); for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; } return b; }
+function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+function rnd(a,b){ return a+Math.random()*(b-a); }
+const P2 = p => p[0].toFixed(1)+","+p[1].toFixed(1);
+const REDUCED = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const SAVE_KEY = "shapeExplorer_v1";
+let D = {sound:true};
+try{ Object.assign(D, JSON.parse(localStorage.getItem(SAVE_KEY)||"{}")); }catch(e){}
+function save(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(D)); }catch(e){} }
+
+let AC=null;
+function audio(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(AC&&AC.state==="suspended") AC.resume(); return AC; }
+function tone(f, dur, type, vol, delay, f2){
+  if(!D.sound) return; const c=audio(); if(!c) return;
+  const t0=c.currentTime+(delay||0), o=c.createOscillator(), g=c.createGain();
+  o.type=type||"sine"; o.frequency.setValueAtTime(f,t0);
+  if(f2) o.frequency.exponentialRampToValueAtTime(f2,t0+dur);
+  g.gain.setValueAtTime(0,t0); g.gain.linearRampToValueAtTime(vol||0.18,t0+0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  o.connect(g); g.connect(c.destination); o.start(t0); o.stop(t0+dur+0.05);
+}
+const SFX = {
+  tap:  ()=>tone(700,0.06,"triangle",0.12),
+  ok:   ()=>{ [659,784,1047].forEach((f,i)=>tone(f,0.2,"triangle",0.18,i*0.08)); },
+  soft: ()=>{ tone(392,0.16,"sine",0.12); tone(330,0.22,"sine",0.10,0.12); },
+  whoosh:()=>tone(900,0.35,"sine",0.08,0,240),
+  ding: ()=>{ tone(1047,0.25,"sine",0.16); tone(1319,0.35,"sine",0.12,0.1); },
+  thud: ()=>tone(160,0.18,"triangle",0.16,0,90),
+  party:()=>{ [523,659,784,1047,784,1047,1319].forEach((f,i)=>tone(f,0.26,"triangle",0.16,i*0.11)); }
+};
+
+/* English voice for shape names (works offline in most browsers) */
+let VOICE=null;
+function pickVoice(){
+  if(!("speechSynthesis" in window)) return;
+  const vs=speechSynthesis.getVoices().filter(v=>/^en/i.test(v.lang));
+  VOICE = vs.find(v=>/en-US/i.test(v.lang)&&/female|samantha|zira|jenny|aria|google/i.test(v.name)) || vs.find(v=>/en-US/i.test(v.lang)) || vs[0] || null;
+}
+if("speechSynthesis" in window){ pickVoice(); speechSynthesis.onvoiceschanged=pickVoice; }
+function speak(text){
+  if(!D.sound || !("speechSynthesis" in window)) return;
+  try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text);
+    u.lang="en-US"; u.rate=0.85; u.pitch=1.1; if(VOICE) u.voice=VOICE; speechSynthesis.speak(u); }catch(e){}
+}
+
+/* ============================================================
+   PART 3 — 3D ENGINE (adapted from Yapı Ustaları's isometric
+   renderer, now with free rotation so shapes can spin and roll)
+   world: x right, y up, z toward viewer. Orthographic view.
+   ============================================================ */
+const DEG=Math.PI/180, I3=[[1,0,0],[0,1,0],[0,0,1]];
+const rx=a=>{const c=Math.cos(a),s=Math.sin(a);return[[1,0,0],[0,c,-s],[0,s,c]];};
+const ry=a=>{const c=Math.cos(a),s=Math.sin(a);return[[c,0,s],[0,1,0],[-s,0,c]];};
+const rz=a=>{const c=Math.cos(a),s=Math.sin(a);return[[c,-s,0],[s,c,0],[0,0,1]];};
+function mm(A,B){ const C=[[0,0,0],[0,0,0],[0,0,0]];
+  for(let i=0;i<3;i++) for(let j=0;j<3;j++) C[i][j]=A[i][0]*B[0][j]+A[i][1]*B[1][j]+A[i][2]*B[2][j]; return C; }
+function mv(M,v){ return [M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2], M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2], M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]]; }
+const dot3=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const nrm=a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];};
+const viewM=(yaw,pitch)=>mm(rx(pitch*DEG), ry(yaw*DEG));
+
+/* colour helpers */
+const INK="#2B1D4A";
+function hex2rgb(h){ h=h.replace("#",""); return [0,2,4].map(i=>parseInt(h.substr(i,2),16)); }
+function rgb2hex(r){ return "#"+r.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join(""); }
+function mix(h,t,k){ const a=hex2rgb(h), b=hex2rgb(t); return rgb2hex(a.map((v,i)=>v+(b[i]-v)*k)); }
+const LIGHT = nrm([-0.45,0.8,0.55]);
+function faceFill(color, n, tn){
+  const d=dot3(n,LIGHT);
+  let c = d>=0.35 ? mix(color,"#ffffff",(d-0.35)*0.5) : mix(color,INK,(0.35-d)*0.42);
+  if(tn) c = tn>0 ? mix(c,"#ffffff",tn) : mix(c,INK,-tn);
+  return c;
+}
+
+/* ---- mesh builders ---- */
+function box(w,h,d){
+  const x=w/2,y=h/2,z=d/2;
+  const v=[[-x,-y,-z],[x,-y,-z],[x,y,-z],[-x,y,-z],[-x,-y,z],[x,-y,z],[x,y,z],[-x,y,z]];
+  const f=[[0,1,2,3],[4,5,6,7],[0,4,7,3],[1,5,6,2],[0,1,5,4],[3,2,6,7]].map(i=>({i}));
+  return {v,f};
+}
+/* extrude a 2D outline; map(a,b,t) places it in 3D */
+function extrude(pts, L, map, o){
+  o=o||{}; const n=pts.length, v=[], f=[];
+  pts.forEach(p=>v.push(map(p[0],p[1],-L/2)));
+  pts.forEach(p=>v.push(map(p[0],p[1], L/2)));
+  f.push({i:[...Array(n).keys()]});
+  f.push({i:[...Array(n).keys()].map(k=>k+n)});
+  for(let k=0;k<n;k++){ const k2=(k+1)%n;
+    f.push({i:[k,k2,k2+n,k+n], smooth:!!o.smooth, tone:(o.stripes && Math.floor(k/o.stripes)%2)?0.13:0}); }
+  return {v,f};
+}
+/* tent shape: triangle standing up, long side going left-right */
+function triPrism(base,h,len){
+  return extrude([[-base/2,-h/2],[base/2,-h/2],[0,h/2]], len, (a,b,t)=>[t,b,a]);
+}
+function cylinder(r,h,n){
+  const pts=[]; for(let i=0;i<n;i++){ const t=i/n*Math.PI*2; pts.push([r*Math.cos(t), r*Math.sin(t)]); }
+  const m=extrude(pts,h,(a,b,t)=>[a,t,b],{smooth:true,stripes:4});
+  /* a stripe painted across both ends — only shown while rolling, so the turning is easy to see */
+  [[0,-1],[1,1]].forEach(([parent,side])=>{
+    const y=side*(h/2+0.004), w=r*0.13, L=r*0.78, s=m.v.length;
+    m.v.push([-L,y,-w],[L,y,-w],[L,y,w],[-L,y,w]);
+    m.f.push({i:[s,s+1,s+2,s+3], decal:true, parent, tone:-0.28});
+  });
+  return m;
+}
+function pyramid(b,h){
+  const s=b/2, y0=-h/2;
+  const v=[[-s,y0,-s],[s,y0,-s],[s,y0,s],[-s,y0,s],[0,h/2,0]];
+  const f=[[0,1,2,3],[0,1,4],[1,2,4],[2,3,4],[3,0,4]].map(i=>({i}));
+  return {v,f};
+}
+/* outward normals (Newell) + size */
+function finalize(m){
+  if(m.sphere){ m.R=m.r; return m; }
+  const n=m.v.length; m.c=[0,1,2].map(k=>m.v.reduce((s,p)=>s+p[k],0)/n);
+  m.f.forEach(f=>{
+    const P=f.i.map(k=>m.v[k]);
+    const fc=[0,1,2].map(k=>P.reduce((s,p)=>s+p[k],0)/P.length);
+    let nn=[0,0,0];
+    for(let i=0;i<P.length;i++){ const a=P[i], b=P[(i+1)%P.length];
+      nn[0]+=(a[1]-b[1])*(a[2]+b[2]); nn[1]+=(a[2]-b[2])*(a[0]+b[0]); nn[2]+=(a[0]-b[0])*(a[1]+b[1]); }
+    nn=nrm(nn);
+    if(dot3(nn,[fc[0]-m.c[0],fc[1]-m.c[1],fc[2]-m.c[2]])<0) nn=nn.map(x=>-x);
+    f.n=nn;
+  });
+  m.R=Math.max(...m.v.map(p=>Math.hypot(p[0],p[1],p[2])));
+  return m;
+}
+const MESH={}; ORDER.forEach(k=>MESH[k]=finalize(SHAPES[k].build()));
+
+function hull(pts){
+  const p=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[], up=[];
+  for(const q of p){ while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+  for(let i=p.length-1;i>=0;i--){ const q=p[i]; while(up.length>=2&&cr(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+
+/* ---- draw a convex mesh: o = {color,V,W,pos,S,decals,sw} ---- */
+function drawMesh(g, m, o){
+  const S=o.S, M=mm(o.V,o.W||I3), vp=mv(o.V,o.pos||[0,0,0]);
+  const Q=m.v.map(p=>{ const q=mv(M,p); return [q[0]+vp[0],q[1]+vp[1],q[2]+vp[2]]; });
+  const edge=mix(o.color,INK,0.6), sw=o.sw||1;
+  const depth=m.f.map(f=>f.i.reduce((s,k)=>s+Q[k][2],0)/f.i.length);
+  const vis=[];
+  m.f.forEach((f,idx)=>{
+    if(f.decal && !o.decals) return;
+    const n=mv(M,f.n); if(n[2]<=1e-4) return;
+    /* convex + culled faces never overlap, so order only matters for outlines:
+       smooth sides first, then flat faces, then painted marks on top */
+    const layer = f.decal?2 : (f.smooth?0:1);
+    vis.push({f,n,k:layer*100 + (f.decal?depth[f.parent]:depth[idx])});
+  });
+  vis.sort((a,b)=>a.k-b.k);
+  const hp=[];
+  vis.forEach(({f,n})=>{
+    const pts=f.i.map(k=>[Q[k][0]*S,-Q[k][1]*S]);
+    if(!f.decal) hp.push(...pts);
+    const fill=faceFill(o.color,n,f.tone);
+    g.appendChild(el("polygon",{points:pts.map(P2).join(" "), fill,
+      stroke: f.decal?"none":(f.smooth?fill:edge),
+      "stroke-width": f.smooth? S*0.014 : S*0.022*sw, "stroke-linejoin":"round"}));
+  });
+  if(hp.length>2) g.appendChild(el("polygon",{points:hull(hp).map(P2).join(" "), fill:"none",
+    stroke:edge, "stroke-width":S*0.042*sw, "stroke-linejoin":"round"}));
+}
+
+/* ---- sphere: smooth ball with two painted bands (so spinning shows) ---- */
+const GRADS={};
+function gradFor(color){
+  const id="sg"+color.replace("#","");
+  if(GRADS[id]) return id;
+  const gr=el("radialGradient",{id, cx:"0.36", cy:"0.32", r:"0.75"});
+  [[0,mix(color,"#ffffff",0.5)],[0.5,color],[1,mix(color,INK,0.38)]].forEach(([o,c])=>gr.appendChild(el("stop",{offset:o,"stop-color":c})));
+  $("#gradDefs").appendChild(gr); GRADS[id]=1; return id;
+}
+function drawSphere(g, m, o){
+  const S=o.S, M=mm(o.V,o.W||I3), c=mv(o.V,o.pos||[0,0,0]);
+  const cx=c[0]*S, cy=-c[1]*S, r=m.r*S, edge=mix(o.color,INK,0.6), band=mix(o.color,"#ffffff",0.6);
+  g.appendChild(el("circle",{cx,cy,r,fill:"url(#"+gradFor(o.color)+")"}));
+  const circles=[t=>[Math.cos(t),Math.sin(t),0], t=>[0,Math.sin(t),Math.cos(t)]];
+  circles.forEach(fn=>{
+    let d="", pen=false;
+    for(let i=0;i<=64;i++){
+      const q=mv(M,fn(i/64*Math.PI*2));
+      if(q[2]>0){ d+=(pen?"L":"M")+(cx+q[0]*r).toFixed(1)+","+(cy-q[1]*r).toFixed(1); pen=true; }
+      else pen=false;
+    }
+    if(d) g.appendChild(el("path",{d, fill:"none", stroke:band, "stroke-width":r*0.13, "stroke-linecap":"round", opacity:"0.9"}));
+  });
+  g.appendChild(el("ellipse",{cx:cx-r*0.36, cy:cy-r*0.4, rx:r*0.2, ry:r*0.12, fill:"#fff", opacity:"0.6",
+    transform:"rotate(-35 "+(cx-r*0.36).toFixed(1)+" "+(cy-r*0.4).toFixed(1)+")"}));
+  g.appendChild(el("circle",{cx,cy,r,fill:"none",stroke:edge,"stroke-width":S*0.042*(o.sw||1)}));
+}
+function drawShape(g, key, o){ const m=MESH[key]; if(m.sphere) drawSphere(g,m,o); else drawMesh(g,m,o); }
+
+/* soft shadow lying in a plane: center + a1*cos*r1 + a2*sin*r2 */
+function drawShadow(g, o, center, a1, r1, a2, r2, op){
+  const pts=[];
+  for(let i=0;i<32;i++){ const t=i/32*Math.PI*2, c=Math.cos(t)*r1, s=Math.sin(t)*r2;
+    const q=mv(o.V,[center[0]+a1[0]*c+a2[0]*s, center[1]+a1[1]*c+a2[1]*s, center[2]+a1[2]*c+a2[2]*s]);
+    pts.push([q[0]*o.S,-q[1]*o.S]); }
+  g.appendChild(el("polygon",{points:pts.map(P2).join(" "), fill:"rgba(43,29,74,"+(op||0.15)+")"}));
+}
+function yRange(m,W){
+  if(m.sphere) return [-m.r,m.r];
+  let lo=1e9,hi=-1e9; m.v.forEach(p=>{ const y=mv(W,p)[1]; if(y<lo) lo=y; if(y>hi) hi=y; }); return [lo,hi];
+}
+
+/* ============================================================
+   PART 4 — ShapeView: one live shape inside an <svg>
+   ============================================================ */
+let VIEWS=[];
+class ShapeView{
+  constructor(svg, key, o){
+    o=o||{};
+    this.svg=svg; this.key=key; this.color=o.color||SHAPES[key].color;
+    this.yaw=o.yaw!==undefined?o.yaw:-34; this.pitch=o.pitch!==undefined?o.pitch:22;
+    this.spin=o.spin||0; this.sway=o.sway!==undefined?o.sway:5; this.bob=REDUCED?0:(o.bob!==undefined?o.bob:1);
+    this.size=o.size||0.72; this.W=o.W||I3; this.zoom=1; this.zoomT=1; this.vel=0;
+    this.t=Math.random()*10; this.hopT=0;
+    clear(svg); svg.setAttribute("viewBox","-100 -100 200 200"); svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+    this.g=el("g"); svg.appendChild(this.g);
+    this.render();
+    if(!o.still) VIEWS.push(this);
+  }
+  hop(){ this.hopT=0.6; }
+  tick(dt){
+    this.t+=dt; this.yaw+=this.spin*dt + this.vel*dt;
+    this.vel*=Math.pow(0.9,dt*60); if(Math.abs(this.vel)<1) this.vel=0;
+    this.zoom+=(this.zoomT-this.zoom)*Math.min(1,dt*7);
+    if(this.hopT>0) this.hopT=Math.max(0,this.hopT-dt);
+    this.render();
+  }
+  render(){
+    clear(this.g);
+    const m=MESH[this.key], S=100*this.size*SHAPES[this.key].viewScale/m.R*this.zoom;
+    const yaw=this.yaw + (this.spin||this.vel? 0 : Math.sin(this.t*0.8)*this.sway*this.bob);
+    const V=viewM(yaw,this.pitch), W=mm(ry(0),this.W);
+    const [lo,hi]=yRange(m,W), mid=(lo+hi)/2;
+    let lift=Math.max(0,Math.sin(this.t*2.1))*0.05*this.bob;
+    if(this.hopT>0){ const k=1-this.hopT/0.6; lift+=Math.sin(k*Math.PI)*0.45; }
+    const o={color:this.color,V,W,S,pos:[0,-mid+lift,0]};
+    const R=m.sphere? m.r*0.85 : m.R*0.72;
+    drawShadow(this.g,o,[0,lo-mid-0.02,0],[1,0,0],R*(1-lift*0.8),[0,0,1],R*(1-lift*0.8),0.13);
+    drawShape(this.g,this.key,o);
+  }
+}
+
+/* ============================================================
+   PART 5 — RollTest: ramp + floor, a shape rolls or slides down
+   Rolling: sphere a=(5/7)g·sinα, cylinder a=(2/3)g·sinα
+   Sliding: a=g(sinα − μcosα), then friction stops it
+   ============================================================ */
+const WEDGE = finalize(extrude([[-6,0],[0,0],[-6,2.4]], 2.6, (a,b,t)=>[a,b,t]));
+const SLAB  = finalize(box(14,0.5,2.6));
+const RAMP_V = viewM(-22,15);
+
+class RollTest{
+  constructor(svg, key, onDone){
+    this.svg=svg; this.key=key; this.m=MESH[key]; this.color=SHAPES[key].color; this.onDone=onDone;
+    this.V=RAMP_V; this.S=60;
+    const rb=SHAPES[key].rollBehavior; this.kind = rb==="many"?"sphere": rb==="side"?"cyl":"slide";
+    clear(svg); svg.classList.remove("hide");
+    const gs=el("g"); this.go=el("g"); svg.appendChild(gs); svg.appendChild(this.go);
+    const base={V:this.V,S:this.S};
+    drawMesh(gs,SLAB,Object.assign({color:"#8FD6AE",pos:[1,-0.25,0],sw:0.8},base));
+    drawMesh(gs,WEDGE,Object.assign({color:"#F6B26B",sw:0.8},base));
+    /* little finish line on the floor */
+    for(let i=0;i<5;i++){ const z0=-1.3+i*0.52;
+      drawMesh(gs,finalize(box(0.3,0.02,0.52)),Object.assign({color:i%2?"#ffffff":"#2B1D4A",pos:[7.6,0.01,z0+0.26],sw:0.3},base)); }
+    /* fixed camera box */
+    const pts=[[-6,-0.5,-1.3],[-6,-0.5,1.3],[8,-0.5,1.3],[8,-0.5,-1.3],[-6,4.6,-1.3],[8,2.2,-1.3],[-6,4.6,1.3]];
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    pts.forEach(p=>{ const q=mv(this.V,p); const X=q[0]*this.S, Y=-q[1]*this.S; x0=Math.min(x0,X);x1=Math.max(x1,X);y0=Math.min(y0,Y);y1=Math.max(y1,Y); });
+    const pad=26; svg.setAttribute("viewBox",(x0-pad)+" "+(y0-pad)+" "+(x1-x0+pad*2)+" "+(y1-y0+pad*2));
+    svg.setAttribute("preserveAspectRatio","xMidYMid meet");
+
+    this.alpha=Math.atan2(2.4,6); this.Ls=Math.hypot(6,2.4);
+    const sa=Math.sin(this.alpha), ca=Math.cos(this.alpha), G=14;
+    this.sa=sa; this.ca=ca;
+    if(this.kind==="slide"){
+      this.half=Math.max(...this.m.v.map(p=>Math.abs(p[0])));
+      this.off=-yRange(this.m,I3)[0];
+      this.a=G*(sa-0.25*ca); this.dec=3.4;
+    }else{
+      this.r = this.kind==="sphere"? this.m.r : 0.6;
+      this.half=this.r; this.off=this.r;
+      this.a = G*(this.kind==="sphere"?5/7:2/3)*sa; this.dec=3.0;
+      if(this.kind==="cyl") this.h=1.35;
+    }
+    this.s0=this.half+0.25; this.s=this.s0; this.v=0;
+    this.sEnd=this.Ls+8-this.half-0.35;
+    this.phase="wait"; this.tp=0;
+    this.render();
+  }
+  tick(dt){
+    if(this.phase==="wait"){ this.tp+=dt; if(this.tp>0.45){ this.phase=this.kind==="cyl"?"tip":"move"; this.tp=0; if(this.kind==="cyl") SFX.thud(); else SFX.whoosh(); } }
+    else if(this.phase==="tip"){ this.tp+=dt; if(this.tp>=0.7){ this.tp=0.7; this.phase="pause"; this.pt=0; } }
+    else if(this.phase==="pause"){ this.pt+=dt; if(this.pt>0.3){ this.phase="move"; SFX.whoosh(); } }
+    else if(this.phase==="move"){
+      if(this.s<this.Ls) this.v+=this.a*dt; else this.v-=this.dec*dt;
+      if(this.v<=0 && this.s>=this.Ls){ this.v=0; this.finish(); }
+      this.s+=this.v*dt;
+      if(this.s>=this.sEnd){ this.s=this.sEnd; this.finish(); }
+    }
+    this.render();
+  }
+  finish(){ if(this.phase==="done") return; this.phase="done"; SFX.ding(); if(this.onDone) this.onDone(); }
+  surf(s){
+    if(s<=this.Ls) return {x:-6+this.ca*s, y:2.4-this.sa*s, nx:this.sa, ny:this.ca, tx:this.ca, ty:-this.sa};
+    return {x:s-this.Ls, y:0, nx:0, ny:1, tx:1, ty:0};
+  }
+  render(){
+    clear(this.go);
+    const p=this.surf(this.s); let nx=p.nx, ny=p.ny, W, off=this.off;
+    if(this.kind==="slide"){
+      /* tips over the corner at the bottom of the ramp */
+      const k=Math.max(0,Math.min(1,(this.s-(this.Ls-this.half))/(2*this.half)));
+      W=rz(-this.alpha*(1-k));
+      const n=nrm([this.sa*(1-k), this.ca*(1-k)+k, 0]); nx=n[0]; ny=n[1];
+    }else if(this.kind==="sphere"){
+      W=mm(rz(-(this.s-this.s0)/this.r), mm(ry(0.7),rx(0.35)));
+    }else{
+      let tipK = this.phase==="wait"?0 : this.phase==="tip"? this.tp/0.7 : 1;
+      tipK = tipK<1 ? 1-Math.pow(1-tipK,3) : 1;
+      if(tipK<1){ W=mm(rz(-this.alpha), rx(tipK*Math.PI/2)); off=this.h/2+(this.r-this.h/2)*tipK; }
+      else W=mm(rz(-this.alpha-(this.s-this.s0)/this.r), rx(Math.PI/2));
+    }
+    const pos=[p.x+nx*off, p.y+ny*off, 0];
+    const o={color:this.color,V:this.V,S:this.S,W,pos,decals:true};
+    const along = this.kind==="slide"? this.half*0.95 : this.r*0.8;
+    const across = this.kind==="cyl" ? 0.72 : (this.kind==="sphere"? this.r*0.8 : 0.5);
+    drawShadow(this.go,o,[p.x+nx*0.02,p.y+ny*0.02,0],[p.tx,p.ty,0],along,[0,0,1],across,0.18);
+    drawShape(this.go,this.key,o);
+  }
+}
+
+/* ============================================================
+   PART 6 — SCENES
+   ============================================================ */
+const SCENES={menu:"sMenu",explore:"sExplore",matchPick:"sMatchPick",matchA:"sMatchA",matchB:"sMatchB",roll:"sRoll",find:"sFind",build:"sBuild"};
+let current="menu", timers=[];
+function later(fn,ms){ const t=setTimeout(fn,ms); timers.push(t); return t; }
+function go(name, arg){
+  timers.forEach(clearTimeout); timers=[];
+  closeParty(true);
+  VIEWS=[];
+  $$(".scene").forEach(s=>s.classList.remove("on"));
+  $("#"+SCENES[name]).classList.add("on");
+  current=name;
+  ({menu:menuOpen, explore:exploreOpen, matchPick:matchPickOpen, matchA:matchAOpen, matchB:matchBOpen, roll:rollOpen, find:findOpen, build:buildOpen})[name](arg);
+}
+$$(".home").forEach(b=>b.addEventListener("click",()=>{ SFX.tap(); go("menu"); }));
+
+function renderDots(id, total, results, now){
+  const box=$("#"+id); clear(box);
+  for(let i=0;i<total;i++){ const d=document.createElement("div");
+    d.className="dot"+(results[i]?" "+results[i]:"")+(i===now?" now":""); box.appendChild(d); }
+}
+function colorsFor(n, avoid){ return shuffle(PALETTE.filter(c=>c!==avoid)).slice(0,n); }
+
+/* ---------------- MENU ---------------- */
+function menuOpen(){
+  new ShapeView($("#miExplore"),"squarePyramid",{spin:26,size:0.8});
+  new ShapeView($("#miMatch"),"cube",{spin:-22,size:0.8});
+  new ShapeView($("#miRoll"),"sphere",{spin:40,size:0.8});
+  new ShapeView($("#miFind"),"cylinder",{spin:24,size:0.8});
+  houseIcon($("#miBuild"));
+  const sh=$("#shelf"); clear(sh);
+  ORDER.forEach(k=>{
+    const b=document.createElement("button"); b.className="shelfItem"; b.setAttribute("aria-label",SHAPES[k].displayName);
+    const svg=el("svg"); b.appendChild(svg);
+    const t=document.createElement("b"); t.textContent=SHAPES[k].displayName; b.appendChild(t);
+    sh.appendChild(b);
+    const v=new ShapeView(svg,k,{size:0.8,sway:8});
+    b.addEventListener("click",()=>{ v.hop(); SFX.tap(); speak(SHAPES[k].displayName); });
+  });
+  soundIcon();
+}
+$$("#menuCards .mcard").forEach(c=>c.addEventListener("click",()=>{ SFX.tap(); audio(); go(c.dataset.go); }));
+function soundIcon(){ $("#soundBtn").textContent = D.sound?"🔊":"🔇"; }
+$("#soundBtn").addEventListener("click",()=>{ D.sound=!D.sound; save(); soundIcon(); if(D.sound){ SFX.tap(); } else if("speechSynthesis" in window) speechSynthesis.cancel(); });
+
+/* ---------------- EXPLORE ---------------- */
+const EX={key:null, view:null, roll:null, seen:new Set(), partyShown:false, dragged:false};
+function exploreOpen(){
+  const list=$("#exList"); clear(list);
+  ORDER.forEach(k=>{
+    const b=document.createElement("button"); b.className="exCard"+(EX.seen.has(k)?" done":""); b.dataset.k=k;
+    const svg=el("svg"); b.appendChild(svg);
+    const t=document.createElement("b"); t.textContent=SHAPES[k].displayName; b.appendChild(t);
+    const s=document.createElement("span"); s.className="seen"; s.textContent="⭐"; b.appendChild(s);
+    list.appendChild(b);
+    new ShapeView(svg,k,{size:0.78,bob:0,sway:0,still:true});
+    b.addEventListener("click",()=>exSelect(k));
+  });
+  if(EX.key) exSelect(EX.key,true); else exEmpty();
+  exProg();
+}
+function exEmpty(){
+  $("#exEmpty").classList.remove("hide"); $("#exSvg").classList.add("hide"); $("#exRoll").classList.add("hide");
+  ["#exSpin","#exZoom","#exRollBtn"].forEach(s=>$(s).disabled=true);
+}
+function exProg(){ $("#exProg").textContent="⭐ "+EX.seen.size+" / 7"; }
+function exSelect(k, quiet){
+  EX.key=k; EX.roll=null;
+  if(!quiet){ SFX.tap(); speak(SHAPES[k].displayName); }
+  $$(".exCard").forEach(c=>c.classList.toggle("sel",c.dataset.k===k));
+  $("#exEmpty").classList.add("hide");
+  exLookMode();
+  EX.view=new ShapeView($("#exSvg"),k,{size:0.6,sway:6});
+  EX.view.hop();
+  ["#exSpin","#exZoom","#exRollBtn"].forEach(s=>$(s).disabled=false);
+  $("#exSpin").classList.remove("active"); $("#exZoom").classList.remove("active");
+  $("#exZoom").textContent="🔍 Look closer"; $("#exRollBtn").textContent="🎳 Roll it!";
+  $("#exHint").classList.toggle("hide",EX.dragged);
+  exInfo(k);
+  if(!EX.seen.has(k)){
+    EX.seen.add(k); exProg();
+    const c=$(".exCard[data-k='"+k+"']"); if(c) c.classList.add("done");
+    if(EX.seen.size===7 && !EX.partyShown){
+      EX.partyShown=true;
+      later(()=>party("Great job!","You explored 7 shapes!",[
+        {t:"🔍 Keep exploring",c:"b-mint",f:()=>closeParty()},
+        {t:"🎯 Play Match",c:"b-sky",f:()=>go("matchPick")},
+        {t:"🏠 Menu",c:"b-white",f:()=>go("menu")}]),1400);
+    }
+  }
+}
+function exInfo(k){
+  const s=SHAPES[k], box=$("#exInfo"); clear(box);
+  box.innerHTML =
+    '<div class="nameRow"><h2></h2><button class="roundBtn say" aria-label="Say it">🔊</button></div>'+
+    '<p class="desc"></p>'+
+    '<div class="rollTag '+(rolls(k)?"yes":"no")+'"><i>'+(rolls(k)?"🟢":"🔴")+'</i><span></span></div>'+
+    '<div class="real"><div class="art"></div><b></b></div>';
+  box.querySelector("h2").textContent=s.displayName;
+  box.querySelector(".desc").textContent=s.simpleDescription;
+  box.querySelector(".rollTag span").textContent=s.rollShort;
+  box.querySelector(".real b").textContent=s.realLifeExample.word;
+  const art=box.querySelector(".art");
+  if(s.realLifeExample.emoji) art.textContent=s.realLifeExample.emoji;
+  else art.appendChild(realArt(s.realLifeExample.art));
+  box.querySelector(".say").addEventListener("click",()=>speak(s.displayName));
+}
+/* hand-drawn real-life pictures where no emoji fits */
+function realArt(kind){
+  const svg=el("svg",{viewBox:"-130 -100 260 200"});
+  if(kind==="pyramid"){
+    svg.appendChild(el("circle",{cx:78,cy:-58,r:26,fill:"#FFCF4A"}));
+    svg.appendChild(el("path",{d:"M-130,62 Q-60,40 0,58 T130,54 L130,100 L-130,100 Z",fill:"#F3C77E"}));
+    const g=el("g",{transform:"translate(-6,6)"}); svg.appendChild(g);
+    drawMesh(g,MESH.squarePyramid,{color:"#E5A955",V:viewM(-30,14),S:92,pos:[0,0,0]});
+  }
+  return svg;
+}
+function exLookMode(){
+  $("#exSvg").classList.remove("hide"); $("#exRoll").classList.add("hide");
+  $("#exBack").classList.add("hide"); $("#exBanner").classList.remove("show");
+  EX.roll=null; VIEWS=VIEWS.filter(v=>!(v instanceof RollTest));
+  if(EX.key){ $("#exRollBtn").disabled=false; $("#exRollBtn").textContent="🎳 Roll it!"; }
+}
+/* drag to turn */
+(function(){
+  const st=$("#exStage"); let down=false, lx=0, ly=0, lt=0, vx=0;
+  st.addEventListener("pointerdown",e=>{
+    if(!EX.view || EX.roll || e.target.closest("button")) return;
+    down=true; lx=e.clientX; ly=e.clientY; lt=performance.now(); vx=0;
+    try{ st.setPointerCapture(e.pointerId); }catch(_){}
+    EX.view.vel=0;
+  });
+  st.addEventListener("pointermove",e=>{
+    if(!down || !EX.view) return;
+    const sc=stageScale(), dx=(e.clientX-lx)/sc, dy=(e.clientY-ly)/sc, now=performance.now();
+    EX.view.yaw+=dx*0.5;
+    EX.view.pitch=Math.max(6,Math.min(55,EX.view.pitch+dy*0.18));
+    vx = dx*0.5/Math.max(0.008,(now-lt)/1000);
+    lx=e.clientX; ly=e.clientY; lt=now;
+    if(!EX.dragged && Math.abs(dx)>2){ EX.dragged=true; $("#exHint").classList.add("hide"); }
+  });
+  const up=()=>{ if(!down) return; down=false; if(EX.view) EX.view.vel=Math.max(-400,Math.min(400,vx)); };
+  st.addEventListener("pointerup",up); st.addEventListener("pointercancel",up);
+})();
+$("#exSpin").addEventListener("click",()=>{
+  if(EX.roll) exLookMode(); if(!EX.view) return; SFX.tap();
+  if(EX.view.spin){ EX.view.spin=0; $("#exSpin").classList.remove("active"); }
+  else { EX.view.spin=45; $("#exSpin").classList.add("active"); }
+  if(!VIEWS.includes(EX.view)) VIEWS.push(EX.view);
+});
+$("#exZoom").addEventListener("click",()=>{
+  if(EX.roll) exLookMode(); if(!EX.view) return; SFX.tap();
+  const big = EX.view.zoomT<=1;
+  EX.view.zoomT = big?1.5:1; $("#exZoom").classList.toggle("active",big);
+  $("#exZoom").textContent = big?"🔍 Normal size":"🔍 Look closer";
+  if(!VIEWS.includes(EX.view)) VIEWS.push(EX.view);
+});
+$("#exRollBtn").addEventListener("click",()=>{
+  if(!EX.key) return; SFX.tap();
+  $("#exSvg").classList.add("hide"); $("#exHint").classList.add("hide");
+  $("#exBanner").classList.remove("show"); $("#exBack").classList.remove("hide");
+  $("#exRollBtn").disabled=true;
+  VIEWS=VIEWS.filter(v=>!(v instanceof RollTest));
+  const k=EX.key;
+  EX.roll=new RollTest($("#exRoll"),k,()=>{
+    $("#exRollBtn").disabled=false; $("#exRollBtn").textContent="🎳 Roll again";
+    showBanner($("#exBanner"), rolls(k), rolls(k)?"YES! IT ROLLS!":"NO ROLLING", rolls(k)?SHAPES[k].rollText:"It slides.");
+    if(rolls(k)) SFX.ok();
+  });
+  VIEWS.push(EX.roll);
+});
+$("#exBack").addEventListener("click",()=>{ SFX.tap(); exLookMode(); $("#exRollBtn").textContent="🎳 Roll it!"; if(EX.view && !VIEWS.includes(EX.view)) VIEWS.push(EX.view); });
+function showBanner(b, yes, title, sub){
+  b.className="banner "+(yes?"yes":"no");
+  b.innerHTML="<b></b><span></span>"; b.querySelector("b").textContent=title; b.querySelector("span").textContent=sub;
+  requestAnimationFrame(()=>b.classList.add("show"));
+}
+
+/* ---------------- MATCH PICK ---------------- */
+function matchPickOpen(){
+  new ShapeView($("#mpSvgA"),"triangularPrism",{spin:24,size:0.8});
+  new ShapeView($("#mpSvgB"),"cylinder",{spin:-24,size:0.8});
+}
+$("#mpA").addEventListener("click",()=>{ SFX.tap(); go("matchA"); });
+$("#mpB").addEventListener("click",()=>{ SFX.tap(); go("matchB"); });
+
+const PRAISE=["Great!","Correct!","You got it!","Great job!","Super!"];
+
+/* ---------------- MATCH A: shape -> name ---------------- */
+const MA={};
+function matchAOpen(){ MA.list=shuffle(ORDER); MA.i=0; MA.res=[]; maQuestion(); }
+function maQuestion(){
+  VIEWS=[];
+  const k=MA.list[MA.i]; MA.k=k; MA.first=true; MA.lock=false;
+  renderDots("maDots",7,MA.res,MA.i);
+  MA.view=new ShapeView($("#maSvg"),k,{color:pick(PALETTE),spin:18,size:0.64,yaw:rnd(-60,-15)});
+  const fb=$("#maFb"); fb.textContent=""; fb.className="fb";
+  const opts=shuffle([k].concat(shuffle(ORDER.filter(x=>x!==k)).slice(0,3)));
+  const box=$("#maAnswers"); clear(box);
+  opts.forEach(o=>{
+    const b=document.createElement("button"); b.className="btn"; b.textContent=SHAPES[o].displayName;
+    b.addEventListener("click",()=>{
+      if(MA.lock) return;
+      if(o===k){
+        MA.lock=true; b.classList.add("right"); MA.view.hop(); SFX.ok(); speak(SHAPES[k].displayName);
+        fb.textContent=pick(PRAISE); fb.className="fb good";
+        MA.res[MA.i]=MA.first?"ok":"try";
+        later(()=>{ MA.i++; if(MA.i>=7) finishMatch("A"); else maQuestion(); },1500);
+      }else{
+        MA.first=false; b.classList.add("wrong"); b.disabled=true; SFX.soft();
+        fb.textContent="Try again!"; fb.className="fb bad";
+      }
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ---------------- MATCH B: name -> shape ---------------- */
+const MB={};
+function matchBOpen(){ MB.list=shuffle(ORDER); MB.i=0; MB.res=[]; mbQuestion(); }
+function mbQuestion(){
+  VIEWS=[];
+  const k=MB.list[MB.i]; MB.k=k; MB.first=true; MB.lock=false;
+  renderDots("mbDots",7,MB.res,MB.i);
+  $("#mbName").textContent=SHAPES[k].displayName;
+  const fb=$("#mbFb"); fb.textContent=""; fb.className="fb"; fb.style.top="385px"; fb.style.bottom="auto";
+  const opts=shuffle([k].concat(shuffle(ORDER.filter(x=>x!==k)).slice(0,3)));
+  const cols=colorsFor(4);
+  const box=$("#mbTiles"); clear(box);
+  opts.forEach((o,i)=>{
+    const t=document.createElement("button"); t.className="tile"; t.setAttribute("aria-label","shape "+(i+1));
+    const svg=el("svg"); t.appendChild(svg); box.appendChild(t);
+    const v=new ShapeView(svg,o,{color:cols[i],size:0.66,yaw:rnd(-55,-20),sway:10});
+    t.addEventListener("click",()=>{
+      if(MB.lock) return;
+      if(o===k){
+        MB.lock=true; t.classList.add("right"); v.hop(); SFX.ok(); speak(SHAPES[k].displayName);
+        $$("#mbTiles .tile").forEach(x=>{ if(x!==t) x.classList.add("fade"); });
+        v.spin=60;
+        fb.textContent=pick(PRAISE); fb.className="fb good";
+        MB.res[MB.i]=MB.first?"ok":"try";
+        later(()=>{ MB.i++; if(MB.i>=7) finishMatch("B"); else mbQuestion(); },1600);
+      }else{
+        MB.first=false; t.classList.add("wrong"); t.disabled=true; SFX.soft();
+        fb.textContent="Try again!"; fb.className="fb bad";
+      }
+    });
+  });
+  later(()=>speak(SHAPES[k].displayName),350);
+}
+$("#mbSay").addEventListener("click",()=>speak(SHAPES[MB.k].displayName));
+
+function finishMatch(which){
+  const other = which==="A"
+    ? {t:"🖼️ Which picture?", c:"b-sun", f:()=>go("matchB")}
+    : {t:"🔤 What is its name?", c:"b-sun", f:()=>go("matchA")};
+  party("Great job!","You matched 7 shapes!",[
+    other,
+    {t:"🔁 Play again",c:"b-sky",f:()=>go(which==="A"?"matchA":"matchB")},
+    {t:"🏠 Menu",c:"b-white",f:()=>go("menu")}]);
+}
+
+/* ---------------- ROLL OR NOT ---------------- */
+const RO={};
+function rollOpen(){ RO.list=shuffle(ORDER); RO.i=0; RO.res=[]; roQuestion(); }
+function roQuestion(){
+  VIEWS=[];
+  const k=RO.list[RO.i]; RO.k=k; RO.lock=false;
+  renderDots("roDots",7,RO.res,RO.i);
+  $("#roRoll").classList.add("hide"); $("#roSvg").classList.remove("hide");
+  $("#roBanner").classList.remove("show");
+  $("#roNameTxt").textContent=SHAPES[k].displayName;
+  RO.view=new ShapeView($("#roSvg"),k,{spin:20,size:0.66});
+  RO.view.hop();
+  $("#roBtns").classList.remove("hide"); $("#roNext").classList.add("hide");
+  ["#roYes","#roNo"].forEach(s=>{ const b=$(s); b.disabled=false; b.classList.remove("right","wrong"); });
+  later(()=>speak("Can it roll?"),300);
+}
+function roAnswer(saysYes, btn){
+  if(RO.lock) return; RO.lock=true;
+  const k=RO.k, truth=rolls(k), right=(saysYes===truth);
+  RO.res[RO.i]=right?"ok":"try";
+  if(right){ btn.classList.add("right"); SFX.ok(); }
+  else { btn.classList.add("wrong"); SFX.soft(); }
+  showBanner($("#roBanner"), right, right?"Good guess!":"Let's test it!", "Watch…");
+  later(()=>{
+    $("#roBanner").classList.remove("show");
+    $("#roBtns").classList.add("hide");
+    $("#roSvg").classList.add("hide");
+    VIEWS=[];
+    VIEWS.push(new RollTest($("#roRoll"),k,()=>{
+      let title, sub;
+      if(truth){ title = right?"YES! It rolls!":"Look! It rolls!"; sub=SHAPES[k].rollText; }
+      else     { title = right?"Correct! It does not roll.":"Look! It does not roll."; sub="It slides."; }
+      showBanner($("#roBanner"), truth, title, sub);
+      speak(truth?"Yes! It rolls!":"It does not roll.");
+      renderDots("roDots",7,RO.res,-1);
+      $("#roNext").classList.remove("hide");
+      $("#roNext").textContent = RO.i>=6 ? "Finish ⭐" : "Next ▶";
+    }));
+  },900);
+}
+$("#roYes").addEventListener("click",e=>roAnswer(true,e.currentTarget));
+$("#roNo").addEventListener("click",e=>roAnswer(false,e.currentTarget));
+$("#roSay").addEventListener("click",()=>speak(SHAPES[RO.k].displayName));
+$("#roNext").addEventListener("click",()=>{
+  SFX.tap(); RO.i++;
+  if(RO.i>=7) party("Great job!","You tested 7 shapes!",[
+    {t:"🔁 Play again",c:"b-sky",f:()=>go("roll")},
+    {t:"🧩 Find It",c:"b-grape",f:()=>go("find")},
+    {t:"🏠 Menu",c:"b-white",f:()=>go("menu")}]);
+  else roQuestion();
+});
+
+/* ---------------- FIND IT ---------------- */
+const FI={};
+const FI_SPOTS=[[330,210],[925,190],[1510,215],[330,560],[925,540],[1510,565]]; // centres on the mat
+function findOpen(){ FI.list=shuffle(ORDER); FI.i=0; FI.res=[]; fiQuestion(); }
+function fiQuestion(){
+  VIEWS=[];
+  const k=FI.list[FI.i]; FI.k=k; FI.first=true; FI.lock=false;
+  renderDots("fiDots",7,FI.res,FI.i);
+  $("#fiText").textContent="Find the "+SHAPES[k].name+"!";
+  $("#fiHintBubble").classList.add("hide");
+  const others=shuffle(ORDER.filter(x=>x!==k)).slice(0,5);
+  const items=shuffle([k].concat(others)), cols=shuffle(PALETTE).slice(0,6);
+  const mat=$("#fiMat"); clear(mat);
+  items.forEach((o,i)=>{
+    const b=document.createElement("button"); b.className="fItem"; b.setAttribute("aria-label","shape "+(i+1));
+    const [cx,cy]=FI_SPOTS[i], sc=rnd(0.86,1.06);
+    b.style.left=(cx-195+rnd(-40,40))+"px"; b.style.top=(cy-175+rnd(-25,25))+"px";
+    b.style.transform="scale("+sc.toFixed(2)+")";
+    const svg=el("svg"); b.appendChild(svg); mat.appendChild(b);
+    /* a cylinder sometimes lies on its side — still a cylinder! */
+    const W = (o==="cylinder" && Math.random()<0.4) ? rx(Math.PI/2) : I3;
+    const v=new ShapeView(svg,o,{color:cols[i],size:0.62,yaw:rnd(-80,10),pitch:rnd(16,28),W,sway:4});
+    b.addEventListener("click",()=>{
+      if(FI.lock) return;
+      if(o===k){
+        FI.lock=true; b.classList.add("right"); v.hop(); v.spin=70; SFX.ok();
+        speak(pick(PRAISE)+" "+SHAPES[k].displayName);
+        $$(".fItem").forEach(x=>{ if(x!==b) x.classList.add("fade"); });
+        FI.res[FI.i]=FI.first?"ok":"try";
+        later(()=>{ FI.i++; if(FI.i>=7) party("Great job!","You found 7 shapes!",[
+          {t:"🔁 Play again",c:"b-sky",f:()=>go("find")},
+          {t:"🎲 Roll or Not?",c:"b-coral",f:()=>go("roll")},
+          {t:"🏠 Menu",c:"b-white",f:()=>go("menu")}]); else fiQuestion(); },1600);
+      }else{
+        FI.first=false; b.classList.add("wrong"); b.disabled=true; SFX.soft();
+        speak("Try again!");
+      }
+    });
+  });
+  later(()=>speak("Find the "+SHAPES[k].name),350);
+}
+$("#fiSay").addEventListener("click",()=>speak("Find the "+SHAPES[FI.k].name));
+$("#fiHint").addEventListener("click",()=>{
+  const s=SHAPES[FI.k], b=$("#fiHintBubble"); SFX.tap();
+  b.innerHTML=""; b.appendChild(document.createTextNode(s.simpleDescription));
+  const em=document.createElement("em"); em.textContent=s.realLifeExample.emoji||"🏜️"; b.appendChild(em);
+  b.classList.remove("hide");
+  speak(s.simpleDescription);
+  later(()=>b.classList.add("hide"),3500);
+});
+
+/* ---------------- BUILD IT (free workshop) ----------------
+   Open-ended: no questions, no scores. Same 7 meshes + 3D engine.
+   Pieces live in the workspace's own pixel space; the last one
+   touched is drawn on top, so children control what is in front. */
+function houseIcon(svg){
+  clear(svg); svg.setAttribute("viewBox","-100 -100 200 200");
+  const g=el("g"); svg.appendChild(g);
+  VIEWS.push({t:0, tick(dt){
+    this.t+=dt; clear(g);
+    const o={V:viewM(-34+this.t*22,22), S:56};
+    drawShadow(g,Object.assign({color:"#000"},o),[0,-1.26,0],[1,0,0],0.95,[0,0,1],0.95,0.13);
+    drawShape(g,"cube",Object.assign({color:"#3B82F6",pos:[0,-0.69,0]},o));
+    drawShape(g,"squarePyramid",Object.assign({color:"#FF5D73",pos:[0,0.55,0]},o));
+  }});
+}
+const BD={pieces:[], sel:null, nextId:1, wide:false, lastColor:null};
+const BD_W=1496, BD_H=765, BD_OPEN_W=1076;
+const bdS = k => 88*SHAPES[k].viewScale/MESH[k].R;
+function buildOpen(){
+  const pal=$("#bdPalette"); clear(pal);
+  ORDER.forEach(k=>{
+    const b=document.createElement("button"); b.className="exCard bdCard";
+    const svg=el("svg"); b.appendChild(svg);
+    const t=document.createElement("b"); t.textContent=SHAPES[k].displayName; b.appendChild(t);
+    pal.appendChild(b);
+    new ShapeView(svg,k,{size:0.78,bob:0,sway:0,still:true});
+    b.addEventListener("click",()=>{ bdAdd(k); b.classList.remove("added"); void b.offsetWidth; b.classList.add("added"); });
+  });
+  const root=$("#bdPieces"); clear(root);
+  BD.pieces.forEach(p=>{ p.g=bdMakeG(p); root.appendChild(p.g); bdDraw(p); });
+  $("#sBuild").classList.toggle("wide",BD.wide);
+  $("#bdConfirm").classList.remove("on");
+  bdTools(); bdCount();
+  VIEWS.push({tick:bdTick});
+}
+function bdMakeG(p){ const g=el("g"); g.dataset.pid=p.id; g.style.cursor="grab"; return g; }
+function bdDraw(p){
+  const g=p.g; clear(g);
+  const m=MESH[p.key], S=bdS(p.key), W=rx(p.tip);
+  const [lo,hi]=yRange(m,W), mid=(lo+hi)/2, R=(m.sphere?m.r:m.R)*S*1.02;
+  g.appendChild(el("circle",{cx:0,cy:0,r:R,fill:"rgba(0,0,0,0)"}));        // big, easy touch target
+  if(BD.sel===p) g.appendChild(el("circle",{cx:0,cy:0,r:R+6,class:"bdRing",fill:"rgba(59,130,246,.10)",stroke:"#3B82F6","stroke-width":6,"stroke-dasharray":"14 12","stroke-linecap":"round"}));
+  const inner=el("g",{transform:"scale("+p.pop.toFixed(3)+")"}); g.appendChild(inner);
+  drawShape(inner,p.key,{color:p.color,V:viewM(p.yaw,22),W,S,pos:[0,-mid,0]});
+  bdPlace(p);
+}
+function bdPlace(p){ p.g.setAttribute("transform","translate("+p.x.toFixed(1)+","+p.y.toFixed(1)+")"); }
+function bdTick(dt){
+  BD.pieces.forEach(p=>{
+    let ch=false;
+    if(p.pt<1){ p.pt=Math.min(1,p.pt+dt/0.35); const t=p.pt; p.pop = t<1 ? 0.2+0.8*t+Math.sin(t*Math.PI)*0.15 : 1; ch=true; }
+    if(Math.abs(p.yawT-p.yaw)>0.3){ p.yaw+=(p.yawT-p.yaw)*Math.min(1,dt*9); ch=true; } else if(p.yaw!==p.yawT){ p.yaw=p.yawT; ch=true; }
+    if(Math.abs(p.tipT-p.tip)>0.005){ p.tip+=(p.tipT-p.tip)*Math.min(1,dt*9); ch=true; } else if(p.tip!==p.tipT){ p.tip=p.tipT; ch=true; }
+    if(ch) bdDraw(p);
+  });
+}
+function bdAdd(k){
+  audio(); SFX.tap(); tone(880,0.12,"sine",0.12,0.05);
+  const w=BD.wide?BD_W:BD_OPEN_W;
+  let color=pick(PALETTE); while(color===BD.lastColor) color=pick(PALETTE); BD.lastColor=color;
+  const p={id:BD.nextId++, key:k, color, x:w/2+rnd(-170,170), y:BD_H/2+rnd(-120,120),
+           yaw:-34, yawT:-34, tip:0, tipT:0, pop:0.2, pt:0};
+  p.g=bdMakeG(p); $("#bdPieces").appendChild(p.g);
+  BD.pieces.push(p); bdSelect(p); bdCount();
+}
+function bdSelect(p){
+  const old=BD.sel; BD.sel=p;
+  if(old && old!==p && old.g) bdDraw(old);
+  if(p){ bdFront(p); bdDraw(p); }
+  bdTools();
+}
+function bdFront(p){ const i=BD.pieces.indexOf(p); if(i>=0){ BD.pieces.splice(i,1); BD.pieces.push(p); } $("#bdPieces").appendChild(p.g); }
+function bdTools(){
+  ["#bdTurn","#bdTip","#bdDel"].forEach(s=>$(s).disabled=!BD.sel);
+  $("#bdTip").disabled = !BD.sel || BD.sel.key==="sphere";
+  $("#bdEmpty").classList.toggle("hide",BD.pieces.length>0);
+}
+function bdCount(){
+  const list=$("#bdList"); clear(list);
+  const n={}; BD.pieces.forEach(p=>n[p.key]=(n[p.key]||0)+1);
+  const used=ORDER.filter(k=>n[k]);
+  if(!used.length){ list.innerHTML='<div class="ph">No shapes yet.</div>'; $("#bdTotal").textContent=""; bdTools(); return; }
+  used.forEach(k=>{
+    const r=document.createElement("div"); r.className="bdRow";
+    const svg=el("svg"); r.appendChild(svg);
+    const t=document.createElement("span"); t.textContent=SHAPES[k].displayName; r.appendChild(t);
+    const b=document.createElement("b"); b.textContent="× "+n[k]; r.appendChild(b);
+    list.appendChild(r);
+    new ShapeView(svg,k,{size:0.8,bob:0,sway:0,still:true});
+  });
+  $("#bdTotal").textContent="Total: "+BD.pieces.length;
+  bdTools();
+}
+/* dragging — one pointer per piece, so two children can move shapes at once */
+(function(){
+  const svg=$("#bdSvg"), drags=new Map();
+  svg.addEventListener("pointerdown",e=>{
+    const g=e.target.closest("[data-pid]");
+    if(!g){ if(!drags.size) bdSelect(null); return; }
+    const p=BD.pieces.find(q=>String(q.id)===g.dataset.pid); if(!p) return;
+    bdSelect(p); SFX.tap();
+    drags.set(e.pointerId,{p,lx:e.clientX,ly:e.clientY});
+    try{ svg.setPointerCapture(e.pointerId); }catch(_){}
+    g.style.cursor="grabbing";
+  });
+  svg.addEventListener("pointermove",e=>{
+    const d=drags.get(e.pointerId); if(!d) return;
+    const sc=stageScale(), p=d.p;
+    p.x=Math.max(30,Math.min(BD_W-30,p.x+(e.clientX-d.lx)/sc));
+    p.y=Math.max(30,Math.min(BD_H-30,p.y+(e.clientY-d.ly)/sc));
+    d.lx=e.clientX; d.ly=e.clientY; bdPlace(p);
+  });
+  const up=e=>{ const d=drags.get(e.pointerId); if(d){ d.p.g.style.cursor="grab"; drags.delete(e.pointerId); } };
+  svg.addEventListener("pointerup",up); svg.addEventListener("pointercancel",up);
+})();
+$("#bdTurn").addEventListener("click",()=>{ if(!BD.sel) return; SFX.tap(); BD.sel.yawT+=45; });
+$("#bdTip").addEventListener("click",()=>{ if(!BD.sel) return; SFX.thud(); BD.sel.tipT = BD.sel.tipT ? 0 : Math.PI/2; });
+$("#bdDel").addEventListener("click",()=>{
+  const p=BD.sel; if(!p) return; SFX.soft();
+  p.g.remove(); BD.pieces=BD.pieces.filter(q=>q!==p); BD.sel=null; bdCount();
+});
+$("#bdClear").addEventListener("click",()=>{ if(!BD.pieces.length) return; SFX.tap(); $("#bdConfirm").classList.add("on"); });
+$("#bdCancel").addEventListener("click",()=>{ SFX.tap(); $("#bdConfirm").classList.remove("on"); });
+$("#bdYes").addEventListener("click",()=>{
+  SFX.soft(); BD.pieces=[]; BD.sel=null; clear($("#bdPieces")); bdCount();
+  $("#bdConfirm").classList.remove("on");
+});
+$("#bdHide").addEventListener("click",()=>{ SFX.tap(); BD.wide=true; $("#sBuild").classList.add("wide"); });
+$("#bdShow").addEventListener("click",()=>{ SFX.tap(); BD.wide=false; $("#sBuild").classList.remove("wide"); });
+
+/* ---------------- CELEBRATION ---------------- */
+function party(title, text, buttons){
+  $("#partyTitle").textContent=title; $("#partyText").textContent=text;
+  const bx=$("#partyBtns"); clear(bx);
+  buttons.forEach(o=>{ const b=document.createElement("button"); b.className="btn "+o.c; b.textContent=o.t;
+    b.addEventListener("click",()=>{ SFX.tap(); o.f(); }); bx.appendChild(b); });
+  const row=$("#partyShapes"); clear(row);
+  ORDER.forEach((k,i)=>{ const svg=el("svg"); row.appendChild(svg);
+    const v=new ShapeView(svg,k,{size:0.72,spin:30}); v.party=true; v.t=i*0.5;
+    setTimeout(()=>v.hop(),150+i*110); });
+  const cf=$("#confetti"); clear(cf);
+  if(!REDUCED) for(let i=0;i<70;i++){ const d=document.createElement("div"); d.className="cf";
+    d.style.left=rnd(0,1920)+"px"; d.style.background=pick(PALETTE);
+    d.style.animationDuration=rnd(2.2,4)+"s"; d.style.animationDelay=rnd(0,0.8)+"s";
+    if(Math.random()<0.4) d.style.borderRadius="50%"; cf.appendChild(d); }
+  $("#party").classList.add("on");
+  SFX.party(); speak(title+" "+text);
+}
+function closeParty(silent){
+  $("#party").classList.remove("on");
+  VIEWS=VIEWS.filter(v=>!v.party);
+  clear($("#confetti"));
+  if(!silent) SFX.tap();
+}
+
+/* ============================================================
+   PART 7 — STAGE SCALING + MAIN LOOP
+   ============================================================ */
+let SCALE=1;
+function stageScale(){ return SCALE; }
+function fit(){
+  SCALE=Math.min(window.innerWidth/1920, window.innerHeight/1080);
+  $("#stage").style.transform="translate(-50%,-50%) scale("+SCALE+")";
+}
+window.addEventListener("resize",fit);
+window.addEventListener("orientationchange",()=>setTimeout(fit,200));
+document.addEventListener("contextmenu",e=>e.preventDefault());
+document.addEventListener("touchmove",e=>e.preventDefault(),{passive:false});
+document.addEventListener("gesturestart",e=>e.preventDefault());
+
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  for(const v of VIEWS.slice()) v.tick(dt);
+  requestAnimationFrame(loop);
+}
+fit();
+go("menu");
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
