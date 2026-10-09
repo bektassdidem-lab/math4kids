@@ -455,7 +455,8 @@ $("#back").onclick=()=>{ SFX.tap(); R.tok++; VIEWS=[]; go("menu"); renderMenu();
 const R={r:0,n:0,done:0,locked:false,q:null,last:null,txt:"",tok:0}, GOAL=30;
 const SEQ=["nameC","shapeC","typeN","rollC","typeC","nameC","shapeC","typeN","typeC","rollC"];
 const PRAISE=["Great job!","Awesome!","Super!","Fantastic!","You got it!","Wow!","Brilliant!"];
-const ALIAS={squarePyramid:["pyramid"],rectangularPrism:["rectangle prism"],triangularPrism:["triangle prism"]};
+const ALIAS={squarePyramid:["pyramid"]};
+const NEAR={triangularPrism:["triangle prism"],rectangularPrism:["rectangle prism"]}, MIS=new Set();
 const EMO={cube:"🎲",sphere:"⚽",rectangularPrism:"📘",squarePrism:"🏢",triangularPrism:"⛺",cylinder:"🥫",squarePyramid:"🔺"};
 function startRound(r){ R.tok++; R.r=r; R.n=0; R.done=0; R.last=null; $("#rt").textContent="Round "+(r+1); prog(); go("game"); next(); }
 function prog(){ $("#pfill").style.width=(R.done/GOAL*100)+"%"; $("#pnum").textContent=R.done+" / "+GOAL; }
@@ -498,10 +499,12 @@ const BOX=["cube","squarePrism","rectangularPrism"], names=k=>[SHAPES[k].name,..
 const tc=s=>s.replace(/\b\w/g,c=>c.toUpperCase());
 function lev(a,b){ const d=[...Array(b.length+1).keys()]; for(let i=1;i<=a.length;i++){ let p=d[0]; d[0]=i; for(let j=1;j<=b.length;j++){ const q=d[j]; d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1)); p=q; } } return d[b.length]; }
 /* "I look like..." clues: cube / square prism / rectangular prism are all accepted for each other. Rounds 1-2 forgive tiny typos; round 3 is strict. */
-function judge(){ const k=R.q.k, x=norm(R.txt), acc=(R.q.t==="typeC"&&BOX.includes(k))?BOX.flatMap(names):names(k);
+function judge(){ const k=R.q.k, x=norm(R.txt), box=R.q.t==="typeC"&&BOX.includes(k), ks=box?BOX:[k], acc=ks.flatMap(names);
   if(acc.includes(x)) return {ok:true,exact:true};
-  if(R.r<2){ let best=null,bd=9; acc.forEach(a=>{ const d=lev(x,a); if(d<bd){ bd=d; best=a; } });
-    if(bd<=(best.length>8?2:1)) return {ok:true,exact:false,show:tc(best)}; }
+  if(R.r<2){ let best=null,bd=9;
+    ks.forEach(q=>(NEAR[q]||[]).forEach(v=>{ if(best===null&&lev(x,v)<=1){ best=SHAPES[q].name; bd=0; } }));
+    if(best===null) acc.forEach(a=>{ const d=lev(x,a); if(d<bd&&x[0]===a[0]){ bd=d; best=a; } });
+    if(best!==null&&bd<=(best.length>=12?2:1)){ const key=best+"|"+x; if(MIS.has(key)) return {ok:false,repeat:true}; MIS.add(key); return {ok:true,exact:false,show:tc(best)}; } }
   return {ok:false}; }
 function press(c){ if(R.locked||!/^type/.test(R.q.t)) return; const a=$("#ans");
   if(c==="⌫") R.txt=R.txt.slice(0,-1);
