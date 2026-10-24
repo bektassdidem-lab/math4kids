@@ -138,7 +138,7 @@ html,body{width:100%;height:100%;overflow:hidden;touch-action:none;background:li
 <div id="stage"><div id="scene"></div><div id="layer"></div><div id="hud"></div></div>
 <script>
 'use strict';
-/* Egg Farm — Grade 1 (1Np.01 zero, 1Np.02 compose/decompose 10–20, 1Np.03 compare/order 0–20). Sinan İnce 2026 */
+/* Egg Farm — Grade 1 (1Np.01 zero, 1Np.02 compose/decompose 10–20, 1Np.03 compare/order 0–20). Didem İnce */
 const $=s=>document.querySelector(s);
 const stage=$('#stage'),layer=$('#layer'),hud=$('#hud');
 let S=1,OX=0,OY=0;
@@ -484,7 +484,7 @@ function renderHome(){clearLayer();showHud(false);G.prompt='';
  const best=loadBest();const xs=[330,640,950];
  ZONES.forEach((Z,i)=>{const tl=el('div','tile',`<div class="num">${i+1}</div><div class="ico"></div><div class="lbl">${Z.name}</div><div class="stars">${[0,1,2].map(k=>STAR(k<best[i])).join('')}</div>`);
   put(tl,xs[i],470);tl.style.animationDelay=(i*90)+'ms';tl.querySelector('.ico').appendChild(Z.icon());onTap(tl,()=>startZone(i));add(tl);});
- add(el('div','foot','Sinan İnce 2026'));}
+ add(el('div','foot','Didem İnce'));}
 renderHome();
 </script>
 </body>
