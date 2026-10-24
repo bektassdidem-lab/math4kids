@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Where Is Pip?</title>
+<style>
+/* ===================== 1. BASE ===================== */
+:root{--u:10px;--ink:#2b3150;--orange:#ff8a3d;--blue:#4f7cff;--green:#35b37e;--pink:#ff5d8f;--yellow:#ffc83d}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#1f2a44;font-family:"Nunito","Segoe UI Rounded","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;color:var(--ink)}
+#app{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);overflow:hidden;background:#fdf1dc}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation}
+.btn-round{width:calc(var(--u)*7);height:calc(var(--u)*7);border-radius:50%;background:#fff;box-shadow:0 calc(var(--u)*.4) 0 rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;transition:transform .1s}
+.btn-round svg{width:58%;height:58%}
+.btn-round:active{transform:translateY(calc(var(--u)*.3))}
+
+/* ===================== 2. SCREENS ===================== */
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(#bfe3ff,#fff3d6 70%)}
+.screen.on{display:flex}
+.corner-tl{position:absolute;left:calc(var(--u)*1.5);top:calc(var(--u)*1.5)}
+.corner-tr{position:absolute;right:calc(var(--u)*1.5);top:calc(var(--u)*1.5)}
+.title{font-size:calc(var(--u)*7);font-weight:900;letter-spacing:.02em;color:var(--ink);text-shadow:0 calc(var(--u)*.4) 0 #fff}
+.title span{color:var(--orange)}
+.hero{width:calc(var(--u)*30);height:calc(var(--u)*18)}
+.peek{animation:peek 2.8s ease-in-out infinite}
+@keyframes peek{0%,15%{transform:translateY(60px)}40%,75%{transform:translateY(0)}100%{transform:translateY(60px)}}
+.home-cards{display:flex;gap:calc(var(--u)*4);margin-top:calc(var(--u)*1)}
+.hcard{width:calc(var(--u)*28);height:calc(var(--u)*14);border-radius:calc(var(--u)*2.4);display:flex;align-items:center;justify-content:center;gap:calc(var(--u)*1.8);transition:transform .1s}
+.hcard:active{transform:translateY(calc(var(--u)*.4))}
+.hcard b{font-size:calc(var(--u)*5);font-weight:900;color:#fff}
+.hc-ic{width:calc(var(--u)*8);height:calc(var(--u)*8);display:flex}
+.hc-ic svg{width:100%;height:100%}
+.hcard-learn{background:#35b37e;box-shadow:0 calc(var(--u)*.7) 0 #23845a}
+.hcard-play{background:var(--orange);box-shadow:0 calc(var(--u)*.7) 0 #d9661c;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.05)}}
+.home-info{display:flex;align-items:center;gap:calc(var(--u)*2);margin-top:calc(var(--u)*2.2)}
+.pill-stars{display:flex;align-items:center;gap:calc(var(--u)*.6);background:#fff;border-radius:calc(var(--u)*3);padding:calc(var(--u)*.5) calc(var(--u)*1.6);font-weight:900;font-size:calc(var(--u)*2.4);box-shadow:0 calc(var(--u)*.3) 0 rgba(0,0,0,.12)}
+.pill-stars svg{width:calc(var(--u)*3);height:calc(var(--u)*3)}
+.sticker-row{display:flex;gap:calc(var(--u)*.5)}
+.sticker-row .slot{width:calc(var(--u)*4.4);height:calc(var(--u)*4.4)}
+.sticker-row .slot.empty{opacity:.22;filter:grayscale(1)}
+.footer{position:absolute;bottom:calc(var(--u)*1);font-size:calc(var(--u)*1.4);opacity:.55;font-weight:700}
+
+/* end */
+.end-title{font-size:calc(var(--u)*7);font-weight:900;color:var(--ink);text-shadow:0 calc(var(--u)*.4) 0 #fff}
+.end-stars{display:flex;align-items:center;gap:calc(var(--u)*1);font-size:calc(var(--u)*7);font-weight:900;margin:calc(var(--u)*1) 0}
+.end-stars svg{width:calc(var(--u)*9);height:calc(var(--u)*9)}
+.end-sticker{width:calc(var(--u)*15);height:calc(var(--u)*15);animation:stk .7s cubic-bezier(.3,1.6,.5,1)}
+@keyframes stk{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+.end-btns{display:flex;gap:calc(var(--u)*4);margin-top:calc(var(--u)*2.5)}
+.end-btns .btn-round{width:calc(var(--u)*10);height:calc(var(--u)*10)}
+
+/* ===================== 3. HUD (explore + play) ===================== */
+#hud{position:absolute;inset:0;pointer-events:none;display:none}
+#app.m-explore #hud,#app.m-play #hud{display:block}
+#hud>*{pointer-events:auto}
+#hudHome{position:absolute;left:calc(var(--u)*1.5);top:calc(var(--u)*1.5)}
+#chip{position:absolute;left:calc(var(--u)*10);top:calc(var(--u)*1.5);height:calc(var(--u)*7.5);display:flex;align-items:center;gap:calc(var(--u)*1);background:#fff;border-radius:calc(var(--u)*4);padding:0 calc(var(--u)*2.4) 0 calc(var(--u)*1);box-shadow:0 calc(var(--u)*.4) 0 rgba(0,0,0,.18)}
+#chip .chip-ic{width:calc(var(--u)*6);height:calc(var(--u)*6)}
+#chip .chip-w{font-size:calc(var(--u)*3.6);font-weight:900;white-space:nowrap}
+#chip.say{animation:chipPulse .5s ease-in-out 2}
+@keyframes chipPulse{50%{transform:scale(1.08)}}
+#hudRight{position:absolute;right:calc(var(--u)*1.5);top:calc(var(--u)*1.5);display:flex;align-items:center;gap:calc(var(--u)*1.4)}
+#hudSay{width:calc(var(--u)*7.5);height:calc(var(--u)*7.5)}
+#dots{display:flex;gap:calc(var(--u)*.55)}
+#dots i{width:calc(var(--u)*1.4);height:calc(var(--u)*1.4);border-radius:50%;background:rgba(43,49,80,.18);display:block}
+#dots i.ok{background:var(--green)}
+#dots i.miss{background:var(--orange)}
+#dots i.cur{box-shadow:0 0 0 calc(var(--u)*.3) var(--blue)}
+
+#refTabs{position:absolute;left:calc(var(--u)*10);top:calc(var(--u)*1.5);display:flex;gap:calc(var(--u)*1)}
+.tab{width:calc(var(--u)*10);height:calc(var(--u)*6.5);background:#fff;border-radius:calc(var(--u)*1.4);box-shadow:0 calc(var(--u)*.35) 0 rgba(0,0,0,.15);padding:calc(var(--u)*.4);transition:transform .1s}
+.tab svg{width:100%;height:100%}
+.tab.on{box-shadow:0 0 0 calc(var(--u)*.45) var(--blue),0 calc(var(--u)*.35) 0 rgba(0,0,0,.15)}
+#wordCol{position:absolute;right:calc(var(--u)*1.2);top:calc(var(--u)*2);bottom:calc(var(--u)*2);width:calc(var(--u)*10.5);display:flex;flex-direction:column;justify-content:center;gap:calc(var(--u)*.9)}
+.wbtn{flex:0 1 calc(var(--u)*8);min-height:0;background:#fff;border-radius:calc(var(--u)*1.4);box-shadow:0 calc(var(--u)*.35) 0 rgba(0,0,0,.15);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--u)*.3);transition:transform .1s}
+.wbtn svg{width:calc(var(--u)*4.4);height:calc(var(--u)*4.4)}
+.wbtn span{font-size:calc(var(--u)*1.6);font-weight:900;line-height:1}
+.wbtn.on{background:#fff2c2;box-shadow:0 0 0 calc(var(--u)*.4) var(--yellow)}
+.wbtn:active,.tab:active{transform:translateY(calc(var(--u)*.3))}
+#btnNext{position:absolute;right:calc(var(--u)*2);bottom:calc(var(--u)*2.5);width:calc(var(--u)*10);height:calc(var(--u)*10);background:var(--green);box-shadow:0 calc(var(--u)*.6) 0 #23845a;display:none}
+#btnNext.on{display:flex;animation:nextIn .4s cubic-bezier(.3,1.6,.5,1),nextPulse 1.2s ease-in-out .4s infinite}
+@keyframes nextIn{from{transform:scale(0)}to{transform:scale(1)}}
+@keyframes nextPulse{50%{transform:scale(1.08)}}
+#app.m-explore #chip,#app.m-explore #hudRight,#app.m-explore #btnNext{display:none}
+#app.m-play #refTabs,#app.m-play #wordCol{display:none}
+
+/* ===================== 4. STAGE FX ===================== */
+.mover{cursor:grab}
+.mover.held .mv-in{filter:drop-shadow(0 14px 8px rgba(0,0,0,.28))}
+.mv-in{transform-box:fill-box;transform-origin:50% 100%}
+.mv-in.pop{animation:mvPop .4s cubic-bezier(.3,1.6,.5,1)}
+@keyframes mvPop{from{transform:scale(0)}to{transform:scale(1)}}
+.mv-in.hop{animation:hop .55s ease-out}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-30px)}}
+.mv-in.wob{animation:wob .45s ease-in-out}
+@keyframes wob{25%{transform:rotate(-9deg)}75%{transform:rotate(9deg)}}
+.glow{fill:rgba(255,226,90,.28);stroke:#ffcf1f;stroke-width:8;stroke-dasharray:24 14;transform-box:fill-box;transform-origin:center;animation:glow .8s ease-in-out infinite alternate}
+@keyframes glow{from{transform:scale(.92)}to{transform:scale(1.06)}}
+.spark{animation:spark .8s ease-out forwards}
+@keyframes spark{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1);opacity:0}}
+.wing{transform-box:fill-box;transform-origin:20% 90%;animation:wing .3s ease-in-out infinite alternate}
+@keyframes wing{from{transform:rotate(-14deg)}to{transform:rotate(12deg)}}
+.wl{transform-box:fill-box;transform-origin:100% 50%;animation:fly .45s ease-in-out infinite alternate}
+.wr{transform-box:fill-box;transform-origin:0% 50%;animation:fly .45s ease-in-out infinite alternate}
+@keyframes fly{to{transform:scaleX(.55)}}
+
+/* ===================== 5. SETTINGS + ROTATE ===================== */
+#settings{position:absolute;inset:0;background:rgba(20,26,48,.55);display:none;align-items:center;justify-content:center;z-index:20}
+#settings.on{display:flex}
+.panel{background:#fff;border-radius:calc(var(--u)*2);padding:calc(var(--u)*2.4) calc(var(--u)*3);width:calc(var(--u)*52);font-size:calc(var(--u)*1.9);font-weight:700}
+.panel h2{font-size:calc(var(--u)*3);font-weight:900;margin-bottom:calc(var(--u)*1.2)}
+.row{display:flex;align-items:center;justify-content:space-between;padding:calc(var(--u)*1) 0;border-bottom:1px solid #eee}
+.voice-name{font-size:calc(var(--u)*1.4);opacity:.65;padding-top:calc(var(--u)*.6)}
+.voice-name.warn{color:#d1452f;opacity:1}
+.pill{background:#eef2ff;border-radius:calc(var(--u)*2);padding:calc(var(--u)*.6) calc(var(--u)*1.8);font-weight:900}
+.pill.on{background:var(--blue);color:#fff}
+.pill.danger{background:#ffe1dc;color:#c0392b}
+.seg{display:flex;gap:calc(var(--u)*.6)}
+.panel .close{display:block;margin:calc(var(--u)*1.6) auto 0;background:var(--orange);color:#fff;padding:calc(var(--u)*.8) calc(var(--u)*3)}
+#rotate{position:fixed;inset:0;background:#1f2a44;color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:99;font-weight:900;font-size:26px;text-align:center}
+#rotate svg{width:110px;height:110px;animation:rot 1.8s ease-in-out infinite}
+@keyframes rot{50%{transform:rotate(-90deg)}}
+@media (orientation:portrait){#rotate{display:flex}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ===== STAGE ===== -->
+  <svg id="stage" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet">
+    <g id="lBg"></g><g id="lBack"></g><g id="lRefs"></g><g id="lFront"></g><g id="lFx"></g><g id="lDrag"></g>
+  </svg>
+
+  <!-- ===== HUD ===== -->
+  <div id="hud">
+    <button class="btn-round" id="hudHome" aria-label="Home"></button>
+    <div id="refTabs"></div>
+    <button id="chip" aria-label="Say the word"><span class="chip-ic"></span><span class="chip-w"></span></button>
+    <div id="hudRight">
+      <div id="dots"></div>
+      <div class="pill-stars"><span class="ic-star"></span><b id="hudStars">0</b></div>
+      <button class="btn-round" id="hudSay" aria-label="Listen again"></button>
+    </div>
+    <div id="wordCol"></div>
+    <button class="btn-round" id="btnNext" aria-label="Next"></button>
+  </div>
+
+  <!-- ===== HOME ===== -->
+  <div class="screen on" id="scrHome">
+    <button class="btn-round corner-tr" id="btnGear" aria-label="Settings"></button>
+    <div class="title">Where Is <span>Pip</span>?</div>
+    <svg class="hero" viewBox="0 0 400 240" id="hero"></svg>
+    <div class="home-cards">
+      <button class="hcard hcard-learn" id="cardLearn"><span class="hc-ic" id="learnIc"></span><b>Learn</b></button>
+      <button class="hcard hcard-play" id="cardPlay"><span class="hc-ic" id="playIc"></span><b>Play</b></button>
+    </div>
+    <div class="home-info">
+      <div class="pill-stars"><span class="ic-star"></span><b id="homeStars">0</b></div>
+      <div class="sticker-row" id="stickerRow"></div>
+    </div>
+    <div class="footer">Sinan İnce 2026</div>
+  </div>
+
+  <!-- ===== END ===== -->
+  <div class="screen" id="scrEnd">
+    <div class="end-title" id="endTitle">Great job!</div>
+    <div class="end-stars"><span class="ic-star"></span><b id="endStars">0</b></div>
+    <div class="end-sticker" id="endSticker"></div>
+    <div class="end-btns">
+      <button class="btn-round" id="btnAgain" aria-label="Play again"></button>
+      <button class="btn-round" id="btnEndHome" aria-label="Home"></button>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS ===== -->
+  <div id="settings">
+    <div class="panel">
+      <h2>Settings</h2>
+      <div class="row"><span>Sound effects</span><button class="pill" id="tSfx">On</button></div>
+      <div class="row"><span>Voice speed</span><div class="seg"><button class="pill" data-rate="slow">Slow</button><button class="pill" data-rate="normal">Normal</button></div></div>
+      <div class="row" style="flex-wrap:wrap"><span>Voice</span><button class="pill" id="tTest">Test</button><div class="voice-name" id="voiceName" style="width:100%"></div></div>
+      <div class="row"><span>Reset stars &amp; stickers</span><button class="pill danger" id="tReset">Reset</button></div>
+      <button class="pill close" id="tClose">Close</button>
+    </div>
+  </div>
+</div>
+
+<div id="rotate">
+  <svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="12" cy="18.5" r="1.1" fill="#fff"/></svg>
+  Please turn your device
+</div>
+
+<script>
+"use strict";
+/* =====================================================
+   1. STORAGE
+   ===================================================== */
+const KEY = 'whereIsPip_v1';
+function freshState(){ return {stars:0, stickers:[], stats:{}, sfx:true, rate:'slow'}; }
+let S = (function(){
+  try{ const d = JSON.parse(localStorage.getItem(KEY)); return Object.assign(freshState(), d || {}); }
+  catch(e){ return freshState(); }
+})();
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function stat(pos, ok){ const s = S.stats[pos] || (S.stats[pos] = {c:0, w:0}); ok ? s.c++ : s.w++; save(); }
+
+/* =====================================================
+   2. HELPERS
+   ===================================================== */
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const rnd = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function shuffle(a){ for(let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+/* =====================================================
+   3. AUDIO — effects (Web Audio) + voice (speechSynthesis)
+   ===================================================== */
+let AC = null;
+function ac(){
+  if(!AC){ try{ AC = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+  if(AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f1, f2, dur, type, vol, delay){
+  if(!S.sfx) return; const a = ac(); if(!a) return;
+  const t = a.currentTime + (delay || 0), o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f1, t);
+  if(f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || .15, t + .015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + .03);
+}
+const SFX = {
+  pick(){ tone(480, 760, .08, 'sine', .12); },
+  drop(){ tone(700, 420, .1, 'sine', .1); },
+  tap(){ tone(620, 0, .06, 'sine', .08); },
+  ding(){ tone(880, 0, .25, 'triangle', .18); tone(1320, 0, .4, 'triangle', .14, .1); },
+  oops(){ tone(330, 230, .3, 'sine', .14); },
+  win(){ [523, 659, 784, 1047].forEach((f, i) => tone(f, 0, .32, 'triangle', .16, i * .13)); }
+};
+
+const TTS = {
+  ok: 'speechSynthesis' in window, voice: null, token: 0, timer: null, q: [],
+  pick(){
+    if(!this.ok) return;
+    const vs = speechSynthesis.getVoices().filter(v => /^en([-_]|$)/i.test(v.lang));
+    if(!vs.length){ this.voice = null; return; }
+    const pref = [/Google US English/i, /Samantha/i, /(Aria|Jenny).*Natural/i, /Aria|Jenny|Zira/i, /Google UK English Female/i, /Karen|Moira|Tessa|Serena|Daniel/i];
+    for(const p of pref){ const v = vs.find(v => p.test(v.name)); if(v){ this.voice = v; return; } }
+    this.voice = vs.find(v => /en[-_]US/i.test(v.lang)) || vs[0];
+  },
+  stop(){ this.token++; clearTimeout(this.timer); if(this.ok) speechSynthesis.cancel(); },
+  /* parts: [{t:'Put Pip'}, {t:'under', e:1}, {t:'the table.'}] — e = emphasised word */
+  say(parts, done){
+    this.stop();
+    const tk = ++this.token; let finished = false;
+    const fin = () => { if(finished || tk !== this.token) return; finished = true; clearTimeout(this.timer); if(done) done(); };
+    const base = S.rate === 'slow' ? 0.75 : 0.92;
+    const words = parts.reduce((n, p) => n + p.t.split(/\s+/).length, 0);
+    if(!this.ok || !this.voice && !speechSynthesis.getVoices().length){
+      this.timer = setTimeout(fin, 700 + words * 260); return;
+    }
+    this.timer = setTimeout(fin, 1200 + words * 560 / base + parts.length * 300); /* safety if onend never fires */
+    setTimeout(() => {
+      if(tk !== this.token) return;
+      this.q = parts.map((p, i) => {
+        const u = new SpeechSynthesisUtterance(p.t);
+        if(this.voice){ u.voice = this.voice; u.lang = this.voice.lang; } else u.lang = 'en-US';
+        u.rate = p.e ? base * 0.82 : base; u.pitch = p.e ? 1.18 : 1.05; u.volume = 1;
+        if(i === parts.length - 1){ u.onend = fin; u.onerror = fin; }
+        return u;
+      });
+      this.q.forEach(u => speechSynthesis.speak(u));
+    }, 70);
+  }
+};
+if(TTS.ok){ TTS.pick(); speechSynthesis.onvoiceschanged = () => { TTS.pick(); showVoice(); }; }
+
+/* =====================================================
+   4. ART — icons, movers, reference objects, background
+   ===================================================== */
+const IC = {
+  home:'<svg viewBox="0 0 24 24"><path d="M3.5 11.5 12 4l8.5 7.5" fill="none" stroke="#2b3150" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 10.5V20h11v-9.5" fill="none" stroke="#2b3150" stroke-width="2.6" stroke-linejoin="round"/></svg>',
+  back:'<svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#2b3150" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  speaker:'<svg viewBox="0 0 24 24"><path d="M3.5 9h4l5-4v14l-5-4h-4z" fill="#4f7cff"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="#4f7cff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  gear:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="none" stroke="#2b3150" stroke-width="2.4"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="#2b3150" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  play:'<svg viewBox="0 0 24 24"><path d="M6 3.5v17l14-8.5z" fill="#fff" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg>',
+  next:'<svg viewBox="0 0 24 24"><path d="M4 12h14M12 5l7 7-7 7" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  again:'<svg viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="#2b3150" stroke-width="2.6" stroke-linecap="round"/><path d="M19.5 3.5v5h-5" fill="none" stroke="#2b3150" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  star:'<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z" fill="#ffc83d" stroke="#e0a100" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  learn:'<svg viewBox="0 0 100 100"><path d="M50 26C38 18 22 18 10 22v56c12-4 28-4 40 4 12-8 28-8 40-4V22c-12-4-28-4-40 4z" fill="#fff"/><path d="M50 26v56" stroke="#35b37e" stroke-width="5"/><path d="M84 12a12 12 0 0 1 0 22M90 6a20 20 0 0 1 0 34" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="30" cy="50" r="9" fill="#ff8a3d"/><rect x="58" y="44" width="20" height="20" rx="4" fill="#8fb4ff"/></svg>'
+};
+
+/* position icons — a box and an orange dot */
+const SQ = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="#8fb4ff" stroke="#4f7cff" stroke-width="3"/>`;
+const DOT = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ff8a3d" stroke="#fff" stroke-width="3"/>`;
+const POS_IC = {
+  'on':          SQ(28,48,44,40) + DOT(50,34,13),
+  'above':       SQ(28,58,44,34) + DOT(50,18,12),
+  'below':       SQ(28,8,44,34) + DOT(50,80,12),
+  'under':       '<rect x="14" y="30" width="72" height="9" rx="4" fill="#c27f4f"/><rect x="20" y="38" width="7" height="50" rx="3" fill="#9a5f36"/><rect x="73" y="38" width="7" height="50" rx="3" fill="#9a5f36"/>' + DOT(50,72,13),
+  'next to':     SQ(12,40,42,44) + DOT(76,70,13),
+  'beside':      SQ(46,40,42,44) + DOT(24,70,13),
+  'behind':      DOT(64,34,15) + SQ(22,38,46,46),
+  'in front of': SQ(26,16,48,46) + '<circle cx="50" cy="66" r="19" fill="#ff8a3d" stroke="#fff" stroke-width="4"/>',
+  'between':     SQ(6,42,26,42) + SQ(68,42,26,42) + DOT(50,70,13)
+};
+const posIcon = (p, size) => `<svg viewBox="0 0 100 100"${size ? ` width="${size}" height="${size}"` : ''}>${POS_IC[p]}</svg>`;
+
+/* movers — drawn around (0,0), feet at about y=+78 */
+const CAT = `
+  <g class="balloon" style="display:none"><path d="M20,-58 Q34,-84 44,-108" stroke="#777" stroke-width="2.5" fill="none"/>
+    <ellipse cx="46" cy="-135" rx="24" ry="29" fill="#ff5d73"/><path d="M42,-106 l4,-4 4,4z" fill="#e84860"/><ellipse cx="38" cy="-146" rx="6" ry="9" fill="#fff" opacity=".5"/></g>
+  <path d="M38,55 Q88,44 72,2" stroke="#ec8a3a" stroke-width="14" fill="none" stroke-linecap="round"/>
+  <ellipse cx="0" cy="38" rx="42" ry="36" fill="#f6a04d"/>
+  <ellipse cx="0" cy="45" rx="24" ry="22" fill="#ffdcae"/>
+  <ellipse cx="-21" cy="72" rx="15" ry="8" fill="#f6a04d"/><ellipse cx="21" cy="72" rx="15" ry="8" fill="#f6a04d"/>
+  <path d="M-36,-40 L-30,-78 L-6,-56 Z" fill="#f6a04d"/><path d="M36,-40 L30,-78 L6,-56 Z" fill="#f6a04d"/>
+  <path d="M-30,-48 L-27,-68 L-14,-56 Z" fill="#ffb3c1"/><path d="M30,-48 L27,-68 L14,-56 Z" fill="#ffb3c1"/>
+  <circle cx="0" cy="-22" r="40" fill="#f6a04d"/>
+  <path d="M-14,-58 q4,8 0,14 M0,-62 q4,8 0,16 M14,-58 q-4,8 0,14" stroke="#e0832f" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <ellipse cx="-14" cy="-26" rx="6" ry="8" fill="#2b2b2b"/><ellipse cx="14" cy="-26" rx="6" ry="8" fill="#2b2b2b"/>
+  <circle cx="-12" cy="-29" r="2" fill="#fff"/><circle cx="16" cy="-29" r="2" fill="#fff"/>
+  <path d="M-5,-12 L5,-12 L0,-6 Z" fill="#e2566b"/>
+  <path d="M0,-6 q-6,7 -12,2 M0,-6 q6,7 12,2" stroke="#7a3d1a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M-20,-10 h-20 M-20,-4 l-18,4 M20,-10 h20 M20,-4 l18,4" stroke="#7a3d1a" stroke-width="2" stroke-linecap="round"/>`;
+const DOG = `
+  <path d="M38,50 Q82,40 72,6" stroke="#a86b3c" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <ellipse cx="0" cy="40" rx="44" ry="34" fill="#c98a55"/>
+  <ellipse cx="0" cy="46" rx="24" ry="20" fill="#f0d2ae"/>
+  <ellipse cx="-22" cy="72" rx="15" ry="8" fill="#c98a55"/><ellipse cx="22" cy="72" rx="15" ry="8" fill="#c98a55"/>
+  <circle cx="0" cy="-20" r="40" fill="#c98a55"/>
+  <ellipse cx="-38" cy="-16" rx="13" ry="30" fill="#8a5530" transform="rotate(15 -38 -16)"/>
+  <ellipse cx="38" cy="-16" rx="13" ry="30" fill="#8a5530" transform="rotate(-15 38 -16)"/>
+  <ellipse cx="0" cy="-4" rx="20" ry="15" fill="#f0d2ae"/>
+  <ellipse cx="-14" cy="-26" rx="6" ry="8" fill="#2b2b2b"/><ellipse cx="14" cy="-26" rx="6" ry="8" fill="#2b2b2b"/>
+  <circle cx="-12" cy="-29" r="2" fill="#fff"/><circle cx="16" cy="-29" r="2" fill="#fff"/>
+  <ellipse cx="0" cy="-10" rx="8" ry="6" fill="#2b2b2b"/>
+  <path d="M-8,2 q8,6 16,0" stroke="#2b2b2b" stroke-width="2.5" fill="none"/><ellipse cx="2" cy="8" rx="5" ry="6" fill="#ff7c8f"/>`;
+const BALL = `
+  <circle cx="0" cy="18" r="60" fill="#ff5d5d"/>
+  <path d="M0,18 L0,-42 A60,60 0 0 1 52,-12 Z" fill="#ffd23d"/>
+  <path d="M0,18 L52,48 A60,60 0 0 1 0,78 Z" fill="#4f7cff"/>
+  <path d="M0,18 L-52,48 A60,60 0 0 1 -52,-12 Z" fill="#35c27e"/>
+  <circle cx="0" cy="18" r="10" fill="#fff"/><ellipse cx="-24" cy="-14" rx="12" ry="7" fill="#fff" opacity=".45" transform="rotate(-35 -24 -14)"/>`;
+const TEDDY = `
+  <circle cx="-30" cy="-50" r="16" fill="#b07a4a"/><circle cx="30" cy="-50" r="16" fill="#b07a4a"/>
+  <circle cx="-30" cy="-50" r="8" fill="#e8c39a"/><circle cx="30" cy="-50" r="8" fill="#e8c39a"/>
+  <ellipse cx="-40" cy="30" rx="12" ry="22" fill="#9c6a3e"/><ellipse cx="40" cy="30" rx="12" ry="22" fill="#9c6a3e"/>
+  <ellipse cx="0" cy="38" rx="38" ry="36" fill="#b07a4a"/>
+  <ellipse cx="0" cy="44" rx="21" ry="21" fill="#e8c39a"/>
+  <circle cx="-22" cy="68" r="13" fill="#9c6a3e"/><circle cx="22" cy="68" r="13" fill="#9c6a3e"/>
+  <circle cx="0" cy="-22" r="36" fill="#b07a4a"/>
+  <ellipse cx="0" cy="-10" rx="16" ry="12" fill="#e8c39a"/>
+  <circle cx="-13" cy="-28" r="5.5" fill="#2b2b2b"/><circle cx="13" cy="-28" r="5.5" fill="#2b2b2b"/>
+  <ellipse cx="0" cy="-15" rx="6" ry="4.5" fill="#2b2b2b"/>
+  <path d="M-6,-6 q6,5 12,0" stroke="#2b2b2b" stroke-width="2.5" fill="none"/>
+  <path d="M-16,8 L-2,16 L-16,24 Z M16,8 L2,16 L16,24 Z" fill="#ff5d73"/><circle cx="0" cy="16" r="4" fill="#e84860"/>`;
+const BIRD = `
+  <path d="M-46,16 L-80,0 L-76,30 Z" fill="#3e8be0"/>
+  <ellipse cx="0" cy="12" rx="52" ry="46" fill="#5aa9ff"/>
+  <ellipse cx="8" cy="26" rx="30" ry="25" fill="#d3e9ff"/>
+  <path d="M-2,-32 Q4,-58 18,-46 Q14,-40 10,-33" fill="#3e8be0"/>
+  <path class="wing" d="M-30,6 Q-18,-34 26,-12 Q8,20 -30,6 Z" fill="#3e8be0"/>
+  <circle cx="24" cy="-6" r="7" fill="#2b2b2b"/><circle cx="26" cy="-8" r="2.2" fill="#fff"/>
+  <path d="M46,2 L68,10 L46,18 Z" fill="#ffb02e"/>
+  <path d="M-8,56 v18 M12,56 v18" stroke="#ffb02e" stroke-width="5" stroke-linecap="round"/>`;
+const BFLY = `
+  <g class="wl"><ellipse cx="-34" cy="-12" rx="34" ry="40" fill="#ff7fb5"/><ellipse cx="-28" cy="36" rx="24" ry="27" fill="#ffb0d3"/><circle cx="-36" cy="-16" r="10" fill="#fff" opacity=".6"/></g>
+  <g class="wr"><ellipse cx="34" cy="-12" rx="34" ry="40" fill="#ff7fb5"/><ellipse cx="28" cy="36" rx="24" ry="27" fill="#ffb0d3"/><circle cx="36" cy="-16" r="10" fill="#fff" opacity=".6"/></g>
+  <ellipse cx="0" cy="12" rx="8" ry="48" fill="#5b3a7a"/>
+  <path d="M-3,-34 Q-12,-60 -22,-64 M3,-34 Q12,-60 22,-64" stroke="#5b3a7a" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="-22" cy="-64" r="4" fill="#5b3a7a"/><circle cx="22" cy="-64" r="4" fill="#5b3a7a"/>`;
+
+const MOVERS = {
+  cat:   {subj:'Pip',            obj:'Pip',            svg:CAT,   balloon:true},
+  dog:   {subj:'The dog',        obj:'the dog',        svg:DOG},
+  ball:  {subj:'The ball',       obj:'the ball',       svg:BALL},
+  teddy: {subj:'The teddy bear', obj:'the teddy bear', svg:TEDDY},
+  bird:  {subj:'The bird',       obj:'the bird',       svg:BIRD},
+  fly:   {subj:'The butterfly',  obj:'the butterfly',  svg:BFLY}
+};
+const GROUND_MV = ['cat','cat','dog','ball','teddy'];
+const AIR_MV    = ['cat','bird','fly'];
+const START = [110, 744];   /* mover start spot (on the green rug) */
+
+/* background room */
+const BG = `
+  <defs>
+    <linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6e6"/><stop offset="1" stop-color="#fbe2bd"/></linearGradient>
+    <linearGradient id="gFloor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3a86f"/><stop offset="1" stop-color="#d48f52"/></linearGradient>
+  </defs>
+  <rect width="1600" height="560" fill="url(#gWall)"/>
+  <g opacity=".35" fill="#f3cf9c">${Array.from({length:14},(_, i) => `<circle cx="${60 + i*115}" cy="${60 + (i%2)*60}" r="7"/>`).join('')}</g>
+  <rect x="1190" y="110" width="270" height="210" rx="16" fill="#fff"/>
+  <rect x="1206" y="126" width="238" height="178" rx="8" fill="#bfe6ff"/>
+  <path d="M1250,230 q14,-28 40,-14 q18,-22 42,0 q26,0 22,22 z" fill="#fff"/>
+  <rect x="1321" y="126" width="8" height="178" fill="#fff"/><rect x="1206" y="211" width="238" height="8" fill="#fff"/>
+  <rect y="546" width="1600" height="16" fill="#e8caa0"/>
+  <rect y="560" width="1600" height="340" fill="url(#gFloor)"/>
+  <g stroke="#b9763f" stroke-width="3" opacity=".35"><path d="M0,600H1600M0,650H1600M0,712H1600M0,788H1600M0,872H1600"/></g>
+  <ellipse cx="${START[0]}" cy="826" rx="96" ry="24" fill="#7fcfae"/><ellipse cx="${START[0]}" cy="826" rx="74" ry="16" fill="#aee6cf"/>`;
+
+/* reference objects + their drop zones.
+   r = [x1,y1,x2,y2] rectangle tested against the mover's centre
+   snap = where the mover sits when it is in that position
+   layer 'back' draws the mover behind the object; s = scale */
+const STARPATH = (cx, cy, k) => `<path transform="translate(${cx},${cy}) scale(${k})" d="M0,-20l6,12 13,2-9.5,9 2.3,13L0,10l-11.8,6 2.3-13-9.5-9 13-2z" fill="#fff" opacity=".8"/>`;
+const REFS = {
+  table: {
+    noun:'the table',
+    svg:`<ellipse cx="800" cy="746" rx="250" ry="16" fill="#000" opacity=".1"/>
+      <rect x="605" y="495" width="26" height="248" rx="6" fill="#9a5f36"/><rect x="969" y="495" width="26" height="248" rx="6" fill="#9a5f36"/>
+      <rect x="580" y="470" width="440" height="32" rx="9" fill="#c27f4f"/><rect x="580" y="470" width="440" height="10" rx="5" fill="#d99a68"/>`,
+    zones:[
+      {pos:'under',   r:[610,502,990,840],  snap:[800,665]},
+      {pos:'on',      r:[570,250,1030,502], snap:[800,392]},
+      {pos:'above',   r:[570,0,1030,250],   snap:[800,172], air:true},
+      {pos:'next to', r:[190,260,580,890],  snap:[440,665]},
+      {pos:'next to', r:[1020,260,1410,890],snap:[1160,665]}
+    ],
+    explore:['on','under','next to','beside','above']
+  },
+  box: {
+    noun:'the box',
+    svg:`<ellipse cx="800" cy="763" rx="190" ry="14" fill="#000" opacity=".1"/>
+      <rect x="640" y="530" width="320" height="230" rx="12" fill="#ffcf5a" stroke="#e8a92c" stroke-width="5"/>
+      <rect x="630" y="510" width="340" height="38" rx="10" fill="#ffad33"/>${STARPATH(800,650,2.4)}`,
+    zones:[
+      {pos:'on',          r:[600,280,1000,545],  snap:[800,431]},
+      {pos:'above',       r:[600,0,1000,280],    snap:[800,168], air:true},
+      {pos:'behind',      r:[640,545,960,665],   snap:[800,506], tgt:[800,605], layer:'back', s:.85},
+      {pos:'in front of', r:[560,665,1040,900],  snap:[800,775], s:1.1},
+      {pos:'next to',     r:[210,260,640,890],   snap:[500,665]},
+      {pos:'next to',     r:[960,260,1390,890],  snap:[1100,665]}
+    ],
+    explore:['on','above','behind','in front of','next to','beside']
+  },
+  shelf: {
+    noun:'the shelf',
+    svg:`<rect x="606" y="458" width="388" height="10" fill="#000" opacity=".06"/>
+      <path d="M650,456 L650,502 L694,456 Z M950,456 L950,502 L906,456 Z" fill="#8f5a33"/>
+      <rect x="600" y="430" width="400" height="26" rx="6" fill="#b06f40"/><rect x="600" y="430" width="400" height="8" rx="4" fill="#cf8c5a"/>`,
+    zones:[
+      {pos:'on',      r:[570,260,1030,456], snap:[800,351]},
+      {pos:'above',   r:[570,0,1030,260],   snap:[800,172], air:true},
+      {pos:'below',   r:[570,456,1030,900], snap:[800,665]},
+      {pos:'next to', r:[260,240,570,700],  snap:null},
+      {pos:'next to', r:[1030,240,1340,700],snap:null}
+    ],
+    explore:['on','above','below']
+  },
+  pair: {
+    noun:'the boxes',
+    svg:`<ellipse cx="520" cy="742" rx="140" ry="12" fill="#000" opacity=".1"/><ellipse cx="1080" cy="742" rx="140" ry="12" fill="#000" opacity=".1"/>
+      <rect x="400" y="575" width="240" height="165" rx="10" fill="#7fdcb0" stroke="#3fbf86" stroke-width="5"/><rect x="392" y="560" width="256" height="32" rx="9" fill="#3fbf86"/>${STARPATH(520,662,1.8)}
+      <rect x="960" y="575" width="240" height="165" rx="10" fill="#a9c4ff" stroke="#5f8ff0" stroke-width="5"/><rect x="952" y="560" width="256" height="32" rx="9" fill="#5f8ff0"/>${STARPATH(1080,662,1.8)}`,
+    zones:[
+      {pos:'between', r:[648,380,952,880],  snap:[800,665]},
+      {pos:'on',      r:[380,300,660,590],  snap:[520,481]},
+      {pos:'on',      r:[940,300,1220,590], snap:[1080,481]},
+      {pos:'next to', r:[220,380,392,880],  snap:[300,665]},
+      {pos:'next to', r:[1208,380,1380,880],snap:[1300,665]}
+    ],
+    explore:['between','on','next to']
+  }
+};
+const refNoun = (ref, pos) => (ref === 'pair' && pos !== 'between') ? 'the box' : REFS[ref].noun;
+
+/* stickers */
+const STK = [
+  '<path d="M50 18l9 19 21 3-15 14 4 21-19-10-19 10 4-21-15-14 21-3z" fill="#ffc83d"/>',
+  '<path d="M50 80C20 60 18 40 30 31c9-7 18-2 20 6 2-8 11-13 20-6 12 9 10 29-20 49z" fill="#ff5d8f"/>',
+  '<circle cx="50" cy="50" r="16" fill="#ffb02e"/><path d="M50 19v9M50 72v9M19 50h9M72 50h9M28 28l6 6M66 66l6 6M28 72l6-6M66 34l6-6" stroke="#ffb02e" stroke-width="6" stroke-linecap="round"/>',
+  '<path d="M60 20a31 31 0 1 0 18 48 25 25 0 1 1-18-48z" fill="#ffd94a"/>',
+  '<path d="M50 60v22" stroke="#4cc26b" stroke-width="5"/><g fill="#ff7fb5"><circle cx="50" cy="31" r="11"/><circle cx="65" cy="42" r="11"/><circle cx="59" cy="60" r="11"/><circle cx="41" cy="60" r="11"/><circle cx="35" cy="42" r="11"/></g><circle cx="50" cy="47" r="9" fill="#ffd23d"/>',
+  '<path d="M50 34c-8-6-26-4-26 16 0 18 14 30 26 26 12 4 26-8 26-26 0-20-18-22-26-16z" fill="#ff4d4d"/><path d="M50 34c0-8 2-12 6-16" stroke="#7a4a2a" stroke-width="4" fill="none"/><path d="M54 26c6-8 16-6 16-6s-4 10-16 6z" fill="#4cc26b"/>',
+  '<ellipse cx="46" cy="50" rx="24" ry="15" fill="#4fb3ff"/><path d="M68 50l14-12v24z" fill="#4fb3ff"/><circle cx="36" cy="46" r="3.5" fill="#1b2b44"/>',
+  '<g fill="none" stroke-width="7"><path d="M20 66a30 30 0 0 1 60 0" stroke="#ff5d5d"/><path d="M27 66a23 23 0 0 1 46 0" stroke="#ffc83d"/><path d="M34 66a16 16 0 0 1 32 0" stroke="#4cc26b"/><path d="M41 66a9 9 0 0 1 18 0" stroke="#4f7cff"/></g>',
+  '<path d="M24 64l-4-30 16 14 14-22 14 22 16-14-4 30z" fill="#ffc83d"/><rect x="24" y="64" width="52" height="9" rx="3" fill="#e5a800"/>',
+  '<g fill="#9b6bff"><ellipse cx="50" cy="60" rx="16" ry="13"/><circle cx="32" cy="42" r="7"/><circle cx="44" cy="32" r="7"/><circle cx="56" cy="32" r="7"/><circle cx="68" cy="42" r="7"/></g>'
+];
+const sticker = i => `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#fff" stroke="#ffd98a" stroke-width="5"/>${STK[i]}</svg>`;
+
+/* =====================================================
+   5. CONTENT — words, levels, which object supports which word
+   ===================================================== */
+const ALL = ['on','under','next to','beside','above','below','in front of','behind','between'];
+const LEVELS = [
+  {n:1, words:['on','under','next to','beside']},
+  {n:2, words:['above','below','in front of','behind']},
+  {n:3, words:['between'], mix:['on','under','next to','beside','above','below','in front of','behind']},
+  {n:4, words:ALL}
+];
+const REFS_FOR = {
+  'on':['table','box','shelf'], 'under':['table'], 'next to':['table','box'], 'beside':['table','box'],
+  'above':['table','box','shelf'], 'below':['shelf'], 'behind':['box'], 'in front of':['box'], 'between':['pair']
+};
+const ROUND_MIN = 8;
+
+/* =====================================================
+   6. LAYOUT
+   ===================================================== */
+const app = $('app'), svg = $('stage');
+const L = {bg:$('lBg'), back:$('lBack'), refs:$('lRefs'), front:$('lFront'), fx:$('lFx'), drag:$('lDrag')};
+function fit(){
+  const W = innerWidth, H = innerHeight; let w = W, h = W * 9 / 16;
+  if(h > H){ h = H; w = H * 16 / 9; }
+  app.style.width = w + 'px'; app.style.height = h + 'px';
+  document.documentElement.style.setProperty('--u', (w / 100) + 'px');
+}
+addEventListener('resize', fit); fit();
+
+/* =====================================================
+   7. MOVER — create, place, glide, layers
+   ===================================================== */
+let mover = null, tw = 0;
+function makeMover(id, pop){
+  if(mover) mover.g.remove();
+  const d = MOVERS[id], g = document.createElementNS(NS, 'g');
+  g.setAttribute('class', 'mover');
+  g.innerHTML = `<circle r="100" fill="#000" fill-opacity="0"/><g class="mv-in${pop ? ' pop' : ''}">${d.svg}</g>`;
+  mover = {id, d, g, x:START[0], y:START[1], s:1};
+  L.front.appendChild(g); place();
+  g.addEventListener('pointerdown', onDown);
+}
+function place(){ mover.g.setAttribute('transform', `translate(${mover.x.toFixed(1)},${mover.y.toFixed(1)}) scale(${mover.s.toFixed(3)})`); }
+function setLayer(n){ L[n].appendChild(mover.g); }
+function setAir(on){ const b = mover.g.querySelector('.balloon'); if(b) b.style.display = on ? '' : 'none'; }
+function anim(cls){ const el = mover.g.querySelector('.mv-in'); el.classList.remove('pop','hop','wob'); void el.getBoundingClientRect(); el.classList.add(cls); }
+function glide(x, y, s, dur, cb){
+  cancelAnimationFrame(tw);
+  const m = mover, x0 = m.x, y0 = m.y, s0 = m.s, t0 = performance.now();
+  const step = t => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    m.x = x0 + (x - x0) * e; m.y = y0 + (y - y0) * e; m.s = s0 + (s - s0) * e; place();
+    if(k < 1) tw = requestAnimationFrame(step); else if(cb) cb();
+  };
+  tw = requestAnimationFrame(step);
+}
+function goZone(z, dur, cb){
+  setLayer('front'); setAir(!!z.air);
+  glide(z.snap[0], z.snap[1], z.s || 1, dur, () => { setLayer(z.layer || 'front'); if(cb) cb(); });
+}
+function resetMover(){ cancelAnimationFrame(tw); mover.x = START[0]; mover.y = START[1]; mover.s = 1; setLayer('front'); setAir(false); place(); }
+
+/* =====================================================
+   8. ZONES — classify a drop point
+   ===================================================== */
+const inRect = (r, x, y) => x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3];
+const rectDist = (r, x, y) => Math.hypot(Math.max(r[0] - x, 0, x - r[2]), Math.max(r[1] - y, 0, y - r[3]));
+function classify(ref, x, y){
+  const zs = REFS[ref].zones;
+  for(const z of zs) if(inRect(z.r, x, y)) return z;
+  let best = null, bd = 80;
+  for(const z of zs){ const d = rectDist(z.r, x, y); if(d < bd){ bd = d; best = z; } }
+  return best;
+}
+const same = (asked, zonePos) => asked === zonePos || (asked === 'beside' && zonePos === 'next to');
+function zoneFor(ref, pos, near){
+  const want = pos === 'beside' ? 'next to' : pos;
+  const zs = REFS[ref].zones.filter(z => z.pos === want && z.snap);
+  if(!zs.length) return null;
+  if(near){ zs.sort((a, b) => Math.hypot(a.snap[0] - near[0], a.snap[1] - near[1]) - Math.hypot(b.snap[0] - near[0], b.snap[1] - near[1])); return zs[0]; }
+  return pos === 'beside' ? zs[0] : zs[zs.length - 1];
+}
+
+/* =====================================================
+   9. FX — glow + sparkles
+   ===================================================== */
+function glowAt(z){ const p = z.tgt || z.snap; L.fx.innerHTML = `<g transform="translate(${p[0]},${p[1]})"><circle class="glow" r="${100 * (z.s || 1)}"/></g>`; }
+function clearFx(){ L.fx.innerHTML = ''; }
+function sparkle(x, y){
+  let h = '';
+  for(let i = 0; i < 9; i++){
+    const a = i / 9 * Math.PI * 2, d = 120 + Math.random() * 50;
+    h += `<g transform="translate(${x},${y})"><path class="spark" style="--dx:${(Math.cos(a) * d).toFixed(0)}px;--dy:${(Math.sin(a) * d).toFixed(0)}px" d="M0,-16l4.6,10 11,1.4-8,7.6 2,10.8L0,24.4l-9.6,5.4 2-10.8-8-7.6 11-1.4z" fill="${['#ffc83d','#ff8a3d','#4f7cff','#35c27e'][i % 4]}"/></g>`;
+  }
+  const g = document.createElementNS(NS, 'g'); g.innerHTML = h; L.fx.appendChild(g);
+  setTimeout(() => g.remove(), 900);
+}
+
+/* =====================================================
+   10. DRAG (pointer events, one finger at a time)
+   ===================================================== */
+let drag = null;
+function svgPt(e){ const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()); }
+function canDrag(){ return mode === 'explore' || (mode === 'play' && !Q.busy); }
+function onDown(e){
+  if(drag || !canDrag()) return;
+  e.preventDefault(); ac();
+  cancelAnimationFrame(tw);
+  const p = svgPt(e);
+  drag = {id:e.pointerId, dx:mover.x - p.x, dy:mover.y - p.y, sx:p.x, sy:p.y, moved:false};
+  setLayer('drag'); setAir(false); mover.s = 1.05; place();
+  mover.g.classList.add('held'); SFX.pick();
+  if(mode === 'explore'){ clearFx(); markWord(null); }
+}
+addEventListener('pointermove', e => {
+  if(!drag || e.pointerId !== drag.id) return;
+  const p = svgPt(e);
+  if(Math.hypot(p.x - drag.sx, p.y - drag.sy) > 14) drag.moved = true;
+  mover.x = clamp(p.x + drag.dx, 60, 1540); mover.y = clamp(p.y + drag.dy, 70, 850); place();
+});
+function onUp(e){
+  if(!drag || e.pointerId !== drag.id) return;
+  const moved = drag.moved; drag = null;
+  mover.g.classList.remove('held'); mover.s = 1; place(); setLayer('front');
+  if(mode === 'play') playDrop(moved); else if(mode === 'explore') exploreDrop(moved);
+}
+addEventListener('pointerup', onUp); addEventListener('pointercancel', onUp);
+
+/* sentences */
+const sent = (m, pos, ref, lead) => [{t:(lead ? lead + ' ' : '') + m.subj + ' is'}, {t:pos, e:1}, {t:refNoun(ref, pos) + '.'}];
+const instr = q => [{t:'Put ' + q.m.obj}, {t:q.pos, e:1}, {t:refNoun(q.ref, q.pos) + '.'}];
+
+/* =====================================================
+   11. SCREENS + MODE
+   ===================================================== */
+let mode = 'home';
+function setMode(m){
+  mode = m; app.className = 'm-' + m;
+  const scr = {home:'scrHome', end:'scrEnd'}[m];
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === scr));
+  if(m === 'home') renderHome();
+}
+function renderHome(){
+  $('homeStars').textContent = S.stars;
+  $('stickerRow').innerHTML = STK.map((_, i) => `<div class="slot${S.stickers.includes(i) ? '' : ' empty'}">${sticker(i)}</div>`).join('');
+}
+function goHome(){ TTS.stop(); cancelAnimationFrame(tw); clearFx(); hideNext(); setMode('home'); }
+
+/* =====================================================
+   12. LEARN (explore) — tap a word or drag Pip, the voice names the position
+   ===================================================== */
+let exRef = 'table';
+function startExplore(){
+  setMode('explore');
+  $('refTabs').innerHTML = Object.keys(REFS).map(r => `<button class="tab" data-ref="${r}"><svg viewBox="360 360 880 420">${REFS[r].svg}</svg></button>`).join('');
+  $('refTabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { SFX.tap(); setExRef(b.dataset.ref); });
+  makeMover('cat', true); setExRef('table');
+  TTS.say([{t:'Tap a word.'}, {t:'Or move Pip!'}]);
+}
+function setExRef(r){
+  exRef = r; L.refs.innerHTML = REFS[r].svg; clearFx(); resetMover();
+  $('refTabs').querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.ref === r));
+  $('wordCol').innerHTML = REFS[r].explore.map(p => `<button class="wbtn" data-pos="${p}">${posIcon(p)}<span>${p}</span></button>`).join('');
+  $('wordCol').querySelectorAll('.wbtn').forEach(b => b.onclick = () => exploreWord(b.dataset.pos));
+}
+function markWord(p){ $('wordCol').querySelectorAll('.wbtn').forEach(b => b.classList.toggle('on', b.dataset.pos === p)); }
+function exploreWord(pos){
+  ac(); SFX.tap(); markWord(pos); clearFx();
+  const z = zoneFor(exRef, pos);
+  goZone(z, 650, () => anim('hop'));
+  TTS.say(sent(MOVERS.cat, pos, exRef), () => markWord(null));
+}
+function exploreDrop(moved){
+  if(!moved){ anim('hop'); TTS.say([{t:'Hi! I am Pip.'}]); return; }
+  SFX.drop();
+  const z = classify(exRef, mover.x, mover.y);
+  if(!z){ TTS.say([{t:'Where is Pip?'}]); return; }
+  markWord(REFS[exRef].explore.includes(z.pos) ? z.pos : null);
+  if(z.snap) goZone(z, 280);
+  TTS.say(sent(MOVERS.cat, z.pos, exRef), () => markWord(null));
+}
+
+/* =====================================================
+   13. PLAY — all words mixed: round building, questions, feedback
+   ===================================================== */
+const Q = {kind:'play', lv:3, list:[], i:0, stars:0, busy:false, missed:new Set()};
+let lastMissed = new Set();
+function weight(p){ const s = S.stats[p] || {c:0, w:0}; return 1 + 2 * (s.w / (s.c + s.w + 1)) + (lastMissed.has(p) ? 2 : 0); }
+function wpick(arr){
+  const ws = arr.map(weight); let r = Math.random() * ws.reduce((a, b) => a + b, 0);
+  for(let i = 0; i < arr.length; i++){ r -= ws[i]; if(r <= 0) return arr[i]; }
+  return arr[arr.length - 1];
+}
+function noAdjacent(a){
+  for(let t = 0; t < 400; t++){
+    let ok = true; for(let i = 1; i < a.length; i++) if(a[i] === a[i - 1]){ ok = false; break; }
+    if(ok) return a; shuffle(a);
+  }
+  return a;
+}
+function buildRound(li){
+  const lv = LEVELS[li]; let poss;
+  if(lv.mix){
+    const pick = [];
+    while(pick.length < 4) pick.push(wpick(lv.mix.filter(x => !pick.includes(x))));
+    shuffle(pick); poss = [];
+    const firstBetween = Math.random() < .5;
+    pick.forEach(p => firstBetween ? poss.push('between', p) : poss.push(p, 'between'));
+  } else {
+    const n = Math.max(ROUND_MIN, lv.words.length);
+    poss = shuffle(lv.words.slice());          /* every word at least once */
+    while(poss.length < n) poss.push(wpick(lv.words));
+    poss = noAdjacent(poss);
+  }
+  const used = new Set();
+  return poss.map(p => {
+    let ref, mv, t = 0;
+    do{ ref = rnd(REFS_FOR[p]); mv = rnd(p === 'above' ? AIR_MV : GROUND_MV); t++; } while(used.has(ref + mv) && t < 30);
+    used.add(ref + mv);
+    return {pos:p, ref, mv, m:MOVERS[mv], res:null, retry:false};
+  });
+}
+function startPlay(){
+  ac(); setMode('play');
+  Q.kind = 'play'; Q.list = buildRound(Q.lv); Q.i = 0; Q.stars = 0; Q.missed = new Set();
+  nextQ();
+}
+function updHud(){
+  $('hudStars').textContent = Q.stars;
+  $('dots').innerHTML = Q.list.map((q, i) => `<i class="${q.res || ''}${i === Q.i ? ' cur' : ''}"></i>`).join('');
+}
+function nextQ(){
+  clearFx();
+  if(Q.i >= Q.list.length){ endRound(); return; }
+  const q = Q.list[Q.i]; Q.busy = false; hideNext();
+  L.refs.innerHTML = REFS[q.ref].svg;
+  makeMover(q.mv, true);
+  $('chip').querySelector('.chip-ic').innerHTML = posIcon(q.pos);
+  $('chip').querySelector('.chip-w').textContent = q.pos;
+  updHud();
+  setTimeout(() => { if(mode === 'play' && Q.list[Q.i] === q) sayInstr(); }, 300);
+}
+function sayInstr(){ const q = Q.list[Q.i]; if(!q) return; pulseChip(); TTS.say(instr(q)); }
+function pulseChip(){ const c = $('chip'); c.classList.remove('say'); void c.offsetWidth; c.classList.add('say'); }
+/* Positions that are easy to mix up in 2D: a drop this close (stage units) to the
+   asked zone still counts as correct. LENIENT[asked][where it landed] = tolerance */
+const LENIENT = {
+  'on':          {'above':110, 'behind':60},
+  'above':       {'on':110},
+  'behind':      {'on':120, 'in front of':55},
+  'in front of': {'behind':55}
+};
+function matchDrop(q, z, x, y){
+  if(!z) return null;
+  if(z.snap && same(q.pos, z.pos)) return z;
+  const tol = (LENIENT[q.pos] || {})[z.pos]; if(!tol) return null;
+  const asked = REFS[q.ref].zones.filter(a => a.snap && same(q.pos, a.pos));
+  for(const a of asked) if(rectDist(a.r, x, y) <= tol) return a;
+  return null;
+}
+/* next arrow: the only way to move on, so nothing depends on the voice finishing */
+function showNext(q){ if(mode !== 'play' || Q.list[Q.i] !== q) return; Q.ready = true; $('btnNext').classList.add('on'); }
+function hideNext(){ Q.ready = false; $('btnNext').classList.remove('on'); }
+function goNext(){ if(!Q.ready) return; hideNext(); SFX.tap(); Q.i++; nextQ(); }
+function playDrop(moved){
+  const q = Q.list[Q.i]; if(!q) return;
+  if(!moved){ sayInstr(); return; }
+  Q.busy = true; SFX.drop();
+  const z = classify(q.ref, mover.x, mover.y);
+  const hit = matchDrop(q, z, mover.x, mover.y);
+  if(hit){
+    /* --- correct --- (a star only on the first try) */
+    clearFx();
+    if(q.res !== 'miss'){
+      if(!q.retry) stat(q.pos, true);
+      q.res = 'ok'; Q.stars++; S.stars++; save();
+    }
+    updHud();
+    goZone(hit, 260, () => { anim('hop'); sparkle(hit.snap[0], hit.snap[1] - 20); SFX.ding(); setTimeout(() => showNext(q), 400); });
+    TTS.say(sent(q.m, q.pos, q.ref, 'Yes!'));
+  } else {
+    /* --- wrong: name what the child actually did, then show the right spot --- */
+    if(!q.retry && q.res !== 'miss') stat(q.pos, false);
+    q.res = 'miss'; Q.missed.add(q.pos); updHud();
+    if(!q.retry) Q.list.push(Object.assign({}, q, {res:null, retry:true}));
+    SFX.oops(); anim('wob');
+    const said = z ? sent(q.m, z.pos, q.ref, 'Oops!') : [{t:'Oops!'}];
+    const tz = zoneFor(q.ref, q.pos, [mover.x, mover.y]);
+    let shown = false;
+    const show = () => {
+      if(shown || mode !== 'play' || Q.list[Q.i] !== q) return; shown = true;
+      glowAt(tz);
+      TTS.say([{t:'Look!'}, {t:q.pos, e:1}, {t:refNoun(q.ref, q.pos) + '.'}]);
+      setTimeout(() => goZone(tz, 1000, () => { anim('hop'); clearFx(); showNext(q); }), 500);
+    };
+    TTS.say(said, show);
+    setTimeout(show, 4500);   /* backup if the voice never reports "finished" */
+  }
+}
+function endRound(){
+  lastMissed = Q.missed;
+  let id = STK.findIndex((_, i) => !S.stickers.includes(i));
+  if(id < 0) id = Math.floor(Math.random() * STK.length); else S.stickers.push(id);
+  save();
+  setMode('end');
+  $('endStars').textContent = Q.stars;
+  const el = $('endSticker'); el.innerHTML = sticker(id); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  SFX.win();
+  TTS.say([{t:'Great job!'}, {t:'You got ' + Q.stars + (Q.stars === 1 ? ' star!' : ' stars!')}]);
+}
+
+/* =====================================================
+   14. SETTINGS
+   ===================================================== */
+function showVoice(){
+  const el = $('voiceName');
+  if(!TTS.ok){ el.textContent = 'This browser cannot speak.'; el.className = 'voice-name warn'; return; }
+  if(TTS.voice){ el.textContent = TTS.voice.name + ' (' + TTS.voice.lang + ')'; el.className = 'voice-name'; }
+  else { el.textContent = 'No English voice found on this device.'; el.className = 'voice-name warn'; }
+}
+function renderSettings(){
+  $('tSfx').textContent = S.sfx ? 'On' : 'Off'; $('tSfx').classList.toggle('on', S.sfx);
+  document.querySelectorAll('[data-rate]').forEach(b => b.classList.toggle('on', b.dataset.rate === S.rate));
+  showVoice();
+}
+let resetArm = 0;
+$('btnGear').onclick = () => { ac(); renderSettings(); $('settings').classList.add('on'); };
+$('tClose').onclick = () => { $('settings').classList.remove('on'); renderHome(); };
+$('tSfx').onclick = () => { S.sfx = !S.sfx; save(); renderSettings(); SFX.tap(); };
+document.querySelectorAll('[data-rate]').forEach(b => b.onclick = () => { S.rate = b.dataset.rate; save(); renderSettings(); TTS.say([{t:'Put Pip'}, {t:'under', e:1}, {t:'the table.'}]); });
+$('tTest').onclick = () => TTS.say([{t:'Put Pip'}, {t:'next to', e:1}, {t:'the box.'}]);
+$('tReset').onclick = () => {
+  if(Date.now() - resetArm < 3000){
+    const keep = {sfx:S.sfx, rate:S.rate}; S = Object.assign(freshState(), keep); save();
+    $('tReset').textContent = 'Done!'; renderHome(); resetArm = 0;
+    setTimeout(() => $('tReset').textContent = 'Reset', 1500);
+  } else { resetArm = Date.now(); $('tReset').textContent = 'Tap again'; setTimeout(() => { if($('tReset').textContent === 'Tap again') $('tReset').textContent = 'Reset'; }, 3000); }
+};
+
+/* =====================================================
+   15. WIRING + START
+   ===================================================== */
+document.querySelectorAll('.ic-star').forEach(el => el.innerHTML = IC.star);
+$('hudHome').innerHTML = IC.home; $('btnEndHome').innerHTML = IC.home;
+$('btnGear').innerHTML = IC.gear; $('btnAgain').innerHTML = IC.again;
+$('hudSay').innerHTML = IC.speaker;
+$('learnIc').innerHTML = IC.learn; $('playIc').innerHTML = IC.play;
+L.bg.innerHTML = BG;
+$('hero').innerHTML = `<g transform="translate(200,150) scale(.85)"><g class="peek">${CAT}</g></g>
+  <rect x="80" y="150" width="240" height="88" rx="12" fill="#ffcf5a" stroke="#e8a92c" stroke-width="5"/>
+  <rect x="70" y="136" width="260" height="30" rx="10" fill="#ffad33"/>${STARPATH(200,200,1.6)}`;
+
+$('cardLearn').onclick = () => { ac(); SFX.tap(); startExplore(); };
+$('cardPlay').onclick = () => { ac(); SFX.tap(); startPlay(); };
+$('hudHome').onclick = () => { SFX.tap(); goHome(); };
+$('btnEndHome').onclick = () => { SFX.tap(); goHome(); };
+$('hudSay').onclick = () => { ac(); if(!Q.busy) sayInstr(); };
+$('chip').onclick = () => { const q = Q.list[Q.i]; if(q && !Q.busy){ pulseChip(); TTS.say([{t:q.pos, e:1}]); } };
+$('btnNext').innerHTML = IC.next; $('btnNext').onclick = goNext;
+$('btnAgain').onclick = () => { SFX.tap(); startPlay(); };
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('visibilitychange', () => { if(document.hidden) TTS.stop(); });
+
+setMode('home');
+</script>
+</body>
+</html>
